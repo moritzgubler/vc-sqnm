@@ -30,6 +30,7 @@ namespace sqnm_space
 
     public:
     SQNM(int ndim_, int nhistx_, double alpha_);
+    SQNM(int ndim_, int nhistx_, double alpha_, double alpha0_, double eps_subsp_);
 
     Eigen::VectorXd step(Eigen::VectorXd &x, double &f_of_x, Eigen::VectorXd &df_dx);
 

@@ -17,6 +17,16 @@ SQNM::SQNM(int ndim_, int nhistx_, double alpha_) {
   flist = make_unique<HistoryList>(ndim, nhistx);
 }
 
+SQNM::SQNM(int ndim_, int nhistx_, double alpha_, double alpha0_, double eps_subsp_) {
+  ndim = ndim_;
+  nhistx = nhistx_;
+  alpha = alpha_;
+  xlist = make_unique<HistoryList>(ndim, nhistx);
+  flist = make_unique<HistoryList>(ndim, nhistx);
+  alpha0 = alpha0_;
+  eps_subsp = eps_subsp_;
+}
+
 VectorXd SQNM::step(VectorXd &x, double &f_of_x, VectorXd &df_dx) {
   nhist = xlist->add(x);
   flist->add(df_dx);
