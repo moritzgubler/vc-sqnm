@@ -15,33 +15,18 @@ class periodic_optimizer
   int nat;
   int ndim;
   bool opt_lattice;
-  bool is_initialized;
   double initial_step_size = 1;
   int n_hist_max = 10;
   double w = 2.0;
-  public:
 
-  void set_w(double w){
-    if (is_initialized) return;
-    this->w = w;
-  }
+  public:
 
   double get_w(){
     return w;
   }
 
-  void set_n_hist_max(int nhistx){
-    if (is_initialized) return;
-    n_hist_max = nhistx;
-  }
-
   int get_n_hist_max(){
     return n_hist_max;
-  }
-
-  void set_initial_step_size(double alpha_in){
-    if (is_initialized) return;
-    initial_step_size = alpha_in;
   }
 
   double get_initial_step_size(){
@@ -50,9 +35,11 @@ class periodic_optimizer
 
   periodic_optimizer(int &nat);
 
+  periodic_optimizer(int &nat, double initial_step_size, int nhist_max, double alpha0, double eps_subsp);
+
   periodic_optimizer(int &nat, Eigen::Vector3d &lat_a, Eigen::Vector3d &lat_b, Eigen::Vector3d &lat_c);
 
-  void initialize();
+  periodic_optimizer(int &nat, Eigen::Vector3d &lat_a, Eigen::Vector3d &lat_b, Eigen::Vector3d &lat_c, double initial_step_size, int nhist_max, double lattice_weight, double alpha0, double eps_subsp);
 
   void step(Eigen::MatrixXd &r, double &energy, Eigen::MatrixXd &f);
 
@@ -64,5 +51,7 @@ class periodic_optimizer
   void split_matrices(Eigen::MatrixXd &a, Eigen::MatrixXd &b, Eigen::VectorXd &c);
 
   Eigen::Matrix3d calc_lattice_derivatices(Eigen::Matrix3d &stress, Eigen::Matrix3d &alat);
+
+  void setupInitialLattice(int &nat, Eigen::Vector3d &lat_a, Eigen::Vector3d &lat_b, Eigen::Vector3d &lat_c);
 };
 #endif

@@ -70,9 +70,7 @@ int main(int argc, char **argv) {
   
   ff_wrapper(nat, r, lat_a, lat_b, lat_c, epot, f, stress);
 
-  periodic_optimizer test(nat, lat_a, lat_b, lat_c);
-  test.set_initial_step_size(2.0);
-  test.initialize();
+  periodic_optimizer test(nat, lat_a, lat_b, lat_c, 2.0, 10, 2.0, 1.e-2, 1.e-4);
 
   for (int i = 0; i < 30; i++)
   {
