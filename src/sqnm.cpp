@@ -1,3 +1,10 @@
+/**
+ * @file sqnm.cpp
+ * @author Moritz Gubler (moritz.gubler@unibas.ch)
+ * @brief Implementation of the SQNM method. More informations about the algorithm can be found here: https://aip.scitation.org/doi/10.1063/1.4905665
+ * @date 2022-07-13
+ * 
+ */
 #include <eigen3/Eigen/Dense>
 #include <iostream>
 #include <memory>
@@ -9,6 +16,13 @@ using namespace std;
 using namespace hlist_space;
 using namespace sqnm_space;
 
+/**
+ * @brief Construct a new SQNM::SQNM object using default parameters
+ * 
+ * @param ndim_ number of dimensions of target function
+ * @param nhistx_ Maximal number of steps that will be stored in the history list. Use a value between 3 and 20. Must be <= than ndim_.
+ * @param alpha_ initial step size. default is 1.0. For systems with hard bonds (e.g. C-C) use a value between and 1.0 and
+ */
 SQNM::SQNM(int ndim_, int nhistx_, double alpha_) {
   ndim = ndim_;
   nhistx = nhistx_;
@@ -17,6 +31,15 @@ SQNM::SQNM(int ndim_, int nhistx_, double alpha_) {
   flist = make_unique<HistoryList>(ndim, nhistx);
 }
 
+/**
+ * @brief Construct a new SQNM::SQNM object using custom parameters.
+ * 
+ * @param ndim_ number of dimensions of target function
+ * @param nhistx_ Maximal number of steps that will be stored in the history list. Use a value between 3 and 20. Must be <= than ndim_.
+ * @param alpha_ initial step size. default is 1.0. For systems with hard bonds (e.g. C-C) use a value between and 1.0 and
+ * @param alpha0_  * @param alpha0 Lower limit on the step size. 1.e-2 is the default.
+ * @param eps_subsp_ Lower limit on linear dependencies of basis vectors in history list. Default 1.e-4.
+ */
 SQNM::SQNM(int ndim_, int nhistx_, double alpha_, double alpha0_, double eps_subsp_) {
   ndim = ndim_;
   nhistx = nhistx_;
@@ -27,6 +50,18 @@ SQNM::SQNM(int ndim_, int nhistx_, double alpha_, double alpha0_, double eps_sub
   eps_subsp = eps_subsp_;
 }
 
+/**
+ * @brief Calculates new coordinates that are closer to local minimum that the current coordinates. This function should be used the following way:
+ * 1. calculate f(x) and the derivative.
+ * 2. call the step function.
+ * 3. add return value of step function to x.
+ * 4. repeat.
+ * 
+ * @param x Current position vector
+ * @param f_of_x value of the target function evaluated at position x.
+ * @param df_dx derivative of the target function evaluated at x.
+ * @return VectorXd displacent that can be added to x in order to get new improved coordinates.
+ */
 VectorXd SQNM::step(VectorXd &x, double &f_of_x, VectorXd &df_dx) {
   nhist = xlist->add(x);
   flist->add(df_dx);
