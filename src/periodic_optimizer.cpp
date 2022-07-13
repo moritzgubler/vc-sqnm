@@ -1,3 +1,11 @@
+/**
+ * @file periodic_optimizer.cpp
+ * @author Moritz Gubler (moritz.gubler@unibas.ch)
+ * @brief Implementation of the vc-sqnm method. More informations about the algorithm can be found here: https://arxiv.org/abs/2206.07339
+ * @date 2022-07-13
+ * 
+ */
+
 #include <eigen3/Eigen/Dense>
 #include <iostream>
 #include "sqnm.hpp"
@@ -77,7 +85,10 @@ periodic_optimizer::periodic_optimizer(int &nat, Vector3d &lat_a, Vector3d &lat_
 }
 
 /**
- * @brief Calculates new atomic coordinates that are closer to the local minimum. Fixed cell optimization.
+ * @brief Calculates new atomic coordinates that are closer to the local minimum. Fixed cell optimization. This function should be used the following way:
+ * 1. calculate energies and forces at positions r.
+ * 2. call the step function to update positions r.
+ * 3. repeat.
  * 
  * @param r Input: atomic coordinates, dimension(3, nat). Output: improved coordinates that are calculated based on forces from this and previous iterations.
  * @param energy Potential energy of the system in it's current state
@@ -92,7 +103,10 @@ void periodic_optimizer::step(MatrixXd &r, double &energy, MatrixXd &f){
 }
 
 /**
- * @brief Calculates new atomic coordinates that are closer to the local minimum. Variable cell shape optimization.
+ * @brief Calculates new atomic coordinates that are closer to the local minimum. Variable cell shape optimization. This function should be used the following way:
+ * 1. calculate energies, forces and stress tensor at positions r and lattice vectors a, b, c.
+ * 2. call the step function to update positions r and lattice vectors.
+ * 3. repeat.
  * 
  * @param r Input: atomic coordinates, dimension(3, nat). Output: improved coordinates that are calculated based on forces from this and previous iterations.
  * @param energy Potential energy of the system in it's current state
