@@ -76,6 +76,13 @@ periodic_optimizer::periodic_optimizer(int &nat, Vector3d &lat_a, Vector3d &lat_
   this->opt = make_unique<sqnm_space::SQNM>(ndim, n_hist_max, initial_step_size, alpha0, eps_subsp);
 }
 
+/**
+ * @brief Calculates new atomic coordinates that are closer to the local minimum. Fixed cell optimization.
+ * 
+ * @param r Input: atomic coordinates, dimension(3, nat). Output: improved coordinates that are calculated based on forces from this and previous iterations.
+ * @param energy Potential energy of the system in it's current state
+ * @param f Forces of the system in it's current state. dimension(3, nat)
+ */
 void periodic_optimizer::step(MatrixXd &r, double &energy, MatrixXd &f){
   VectorXd pos_all = Map<VectorXd>(r.data(), 3*nat);
   VectorXd force_all = - Map<VectorXd>(f.data(), 3*nat);
@@ -84,6 +91,17 @@ void periodic_optimizer::step(MatrixXd &r, double &energy, MatrixXd &f){
   
 }
 
+/**
+ * @brief Calculates new atomic coordinates that are closer to the local minimum. Variable cell shape optimization.
+ * 
+ * @param r Input: atomic coordinates, dimension(3, nat). Output: improved coordinates that are calculated based on forces from this and previous iterations.
+ * @param energy Potential energy of the system in it's current state
+ * @param f Forces of the system in it's current state. dimension(3, nat)
+ * @param lat_a first lattice vector
+ * @param lat_b second lattice vector
+ * @param lat_c third lattice vector
+ * @param stress stress tensor of the system in it' current state.
+ */
 void periodic_optimizer::step(MatrixXd &r, double &energy, MatrixXd &f, Vector3d &lat_a, Vector3d &lat_b, Vector3d &lat_c, Matrix3d &stress){
   Matrix3d alat;
   MatrixXd alat_tilde;
