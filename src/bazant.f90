@@ -26,7 +26,8 @@ subroutine forces_bazant(nat0, alat0, rxyz0, etot0, fxyz0, stress0) bind(C,name=
   do i = 1, 3
   !  print*, 'da', deralat(i, :)
   end do
-  print*, etot, maxval(abs(fxyz)), maxval((deralat))
+  print'(a, 2x, g0.7, 2(2x, g0.2))', 'energy, norm of forces, norm of lattice derivatives' &
+    , etot, maxval(abs(fxyz)), maxval(abs(deralat))
 end subroutine forces_bazant
 
 
