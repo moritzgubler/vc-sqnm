@@ -95,6 +95,11 @@ periodic_optimizer::periodic_optimizer(int &nat, Vector3d &lat_a, Vector3d &lat_
  * @param f Forces of the system in it's current state. dimension(3, nat)
  */
 void periodic_optimizer::step(MatrixXd &r, double &energy, MatrixXd &f){
+  if (opt_lattice)
+  {
+    cout << "The fixed cell step function was called even though the object was created for vc-relaxation. returning" << "\n";
+    return;
+  }
   VectorXd pos_all = Map<VectorXd>(r.data(), 3*nat);
   VectorXd force_all = - Map<VectorXd>(f.data(), 3*nat);
   pos_all += opt->step(pos_all, energy, force_all);
@@ -117,6 +122,11 @@ void periodic_optimizer::step(MatrixXd &r, double &energy, MatrixXd &f){
  * @param stress stress tensor of the system in it' current state.
  */
 void periodic_optimizer::step(MatrixXd &r, double &energy, MatrixXd &f, Vector3d &lat_a, Vector3d &lat_b, Vector3d &lat_c, Matrix3d &stress){
+    if (! opt_lattice)
+  {
+    cout << "The vc step function was called even though the object was created for fixed cell relaxation. returning" << "\n";
+    return;
+  }
   Matrix3d alat;
   MatrixXd alat_tilde;
   alat.col(0) = lat_a;
