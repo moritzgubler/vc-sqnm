@@ -37,7 +37,7 @@ VectorXd SQNM::step(VectorXd &x, double &f_of_x, VectorXd &df_dx) {
   } else {
     double gainratio = calc_gainratio(f_of_x);
     adjust_stepsize(gainratio);
-    cout << "gainratio, stepsize " << gainratio << " " << alpha << endl;
+    //cout << "gainratio, stepsize " << gainratio << " " << alpha << endl;
     //cout << "gainratio " << gainratio << " "<< alpha << endl;
     MatrixXd S = calc_ovrlp();
     //cout << "S " << S << endl;
