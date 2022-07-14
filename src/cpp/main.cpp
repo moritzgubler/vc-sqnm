@@ -60,7 +60,7 @@ int main(int argc, char **argv) {
   int nat = 8;
   //string fname = argv[1];
   //cout << fname << endl;
-  string fname = "../test/test.ascii";
+  string fname = "../../test/test.ascii";
   MatrixXd r(3, nat);
   MatrixXd f(3, nat);
   Vector3d lat_a, lat_b, lat_c;
