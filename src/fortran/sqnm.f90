@@ -53,8 +53,9 @@ subroutine step(t, x, f_of_x, df_dx, dir_of_descent)
   real(c_double), allocatable, dimension(:, :) :: s_evec
   real(c_double), allocatable, dimension(:) :: s_eval
   real(c_double), allocatable, dimension(:, :) :: dr_subsp
+  real(c_double), allocatable, dimension(:, :) :: df_subsp
   integer :: dim_subsp
-  integer :: i
+  integer :: i, ihist
 
   ! lapack variables
   INTEGER :: info
@@ -88,7 +89,22 @@ subroutine step(t, x, f_of_x, df_dx, dir_of_descent)
       if (s_eval(i) / s_eval(1) > t%eps_subsp) dim_subsp = dim_subsp + 1
     end do
 
+    ! compute eq. 11
     allocate(dr_subsp(t%ndim, dim_subsp))
+    dr_subsp = 0.d0
+    allocate(df_subsp(t%ndim, dim_subsp))
+    df_subsp = 0.d0
+    do i = 1, dim_subsp
+      do ihist = 1, t%nhist
+        dr_subsp(:, i) = s_evec(ihist, i) * t%x_list%norm_diff_list(:, ihist)
+        df_subsp(:, i) = s_evec(ihist, i) * t%flist%diff_list(:, ihist) &
+          / norm2(t%x_list%diff_list(:, i)) 
+      end do
+      dr_subsp(:, i) = dr_subsp(:, i) / sqrt(s_eval(i))
+      df_subsp(:, i) = df_subsp(:, i) / sqrt(s_eval(i))
+    end do
+
+
 
   end if
   t%prev_f = f_of_x
