@@ -13,6 +13,7 @@ module historylist
   contains
   procedure :: init
   procedure :: add
+  procedure :: get_length
 
   end type hist_list
 contains
@@ -55,4 +56,10 @@ contains
       end do
     end if
   end subroutine add
+
+  integer function get_length(t)
+    class(hist_list) :: t
+    get_length = t%icount - 1
+  end function get_length
+
 end module historylist
