@@ -119,7 +119,7 @@ subroutine sqnm_step(t, x, f_of_x, df_dx, dir_of_descent)
         , t%dr_subsp(:dim_subsp, :dim_subsp)) &
         + matmul(transpose(t%dr_subsp(:dim_subsp, :dim_subsp))&
         , t%df_subsp(:dim_subsp, :dim_subsp)))
-    call dsyev('v', 'l', dim_subsp, t%h_evec_subsp, dim_subsp, t%h_eval, work, lwork, info)
+    call dsyev('v', 'l', dim_subsp, t%h_evec_subsp(:dim_subsp, :dim_subsp), dim_subsp, t%h_eval(:dim_subsp), work, lwork, info)
 
     ! compute eq. 15
     t%h_evec = 0.d0
