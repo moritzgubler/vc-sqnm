@@ -44,6 +44,8 @@ subroutine initialize_sqnm(t, ndim, nhistx, alpha, alpha0, eps_subsp)
   t%alpha = alpha
   t%alpha0 = alpha0
   t%eps_subsp = eps_subsp
+  call t%x_list%init(ndim, nhistx)
+  call t%flist%init(ndim, nhistx)
 
   allocate(t%prev_df_dx(ndim))
   allocate(t%dr_subsp(t%ndim, nhistx))
@@ -77,33 +79,53 @@ subroutine sqnm_step(t, x, f_of_x, df_dx, dir_of_descent)
   call t%x_list%add(x)
   call t%flist%add(df_dx)
   t%nhist = t%x_list%get_length()
+  !print*, 'hist test', t%nhist
+  print*, 'histlist', t%x_list%list(1, 1:t%nhist+1)
 
   if ( t%nhist == 0 ) then !! first step
+    print*, 'first step', t%alpha
     t%dir_of_descent = - t%alpha * df_dx
+    print*, 'norm', norm2(t%dir_of_descent), t%alpha
   else
     ! calculate gainratio
     t%gainratio = (f_of_x - t%prev_f) / (.5d0 * dot_product(t%dir_of_descent, t%prev_df_dx))
+    print*, 'gainratio', t%gainratio
     if (t%gainratio < 0.5d0 ) t%alpha = max(t%alpha0, t%alpha * 0.65d0)
     if (t%gainratio > 1.05d0) t%alpha = t%alpha * 1.05d0
 
 
     allocate(s_evec(t%nhist, t%nhist), s_eval(t%nhist))
     ! calculate overlab matrix of basis
+    print*, 'asdf', t%x_list%norm_diff_list(1, t%nhist)
     s_evec =  matmul(transpose(t%x_list%norm_diff_list(:, :t%nhist))&
     , t%x_list%norm_diff_list(:, :t%nhist))
+    print*, 'S', s_evec
+    !print*, 'difflist', t%x_list%diff_list(:, :t%nhist)
+    !print*, 'ndifflist', t%x_list%norm_diff_list(:, :t%nhist)
     lwork = 100 * t%nhist
     allocate(work(lwork))
-    call dsyev('v', 'l', t%nhist, s_evec, t%nhist, s_eval, work, lwork, info)
+    !print*, 's matrix', s_evec
+    call dsyev('v', 'u', t%nhist, s_evec, t%nhist, s_eval, work, lwork, info)
+    if (info /= 0) stop 's dsyev'
+    !print*, 'sinfo',info, 'nhist', t%nhist
+    print*, 's evecs', s_evec
+    print*, 's evals', s_eval
 
     dim_subsp = 0
     do i = 1, t%nhist
-      if (s_eval(i) / s_eval(1) > t%eps_subsp) dim_subsp = dim_subsp + 1
+      if (s_eval(i) / s_eval(1) > t%eps_subsp) then
+        dim_subsp = dim_subsp + 1
+      else
+        print*, 'remove dimension'
+      end if
+      !print*, 'test', s_eval(i), s_eval(1), t%eps_subsp
     end do
 
     ! compute eq. 11
 
     t%dr_subsp(:, :dim_subsp) = 0.d0
     t%df_subsp(:, :dim_subsp) = 0.d0
+    !print*, 'seval', s_eval
     do i = 1, dim_subsp
       do ihist = 1, t%nhist
         t%dr_subsp(:, i) = s_evec(ihist, i) * t%x_list%norm_diff_list(:, ihist)
@@ -113,19 +135,25 @@ subroutine sqnm_step(t, x, f_of_x, df_dx, dir_of_descent)
       t%dr_subsp(:, i) = t%dr_subsp(:, i) / sqrt(s_eval(i))
       t%df_subsp(:, i) = t%df_subsp(:, i) / sqrt(s_eval(i))
     end do
+    print*, "dr", t%dr_subsp(1, dim_subsp)
+    print*, "df", t%df_subsp(1, dim_subsp)
 
     !! compute eq. 13
     t%h_evec_subsp(:dim_subsp, :dim_subsp) = .5d0 * (matmul(transpose(t%df_subsp(:dim_subsp, :dim_subsp))&
         , t%dr_subsp(:dim_subsp, :dim_subsp)) &
         + matmul(transpose(t%dr_subsp(:dim_subsp, :dim_subsp))&
         , t%df_subsp(:dim_subsp, :dim_subsp)))
+    print*, 'hsubs', t%h_evec_subsp(:dim_subsp, :dim_subsp)
     call dsyev('v', 'l', dim_subsp, t%h_evec_subsp(:dim_subsp, :dim_subsp), dim_subsp, t%h_eval(:dim_subsp), work, lwork, info)
+    if (info  /= 0 ) stop 'h_eval dsyev'
+    !print*, 'info',info, dim_subsp
+    print*, 'h eval', t%h_eval(:dim_subsp)
 
     ! compute eq. 15
     t%h_evec = 0.d0
     do i = 1, dim_subsp
       do k = 1, dim_subsp
-        t%h_evec(:, i) = t%h_evec_subsp(:, i) * t%dr_subsp(:, k)
+        t%h_evec(:, i) = t%h_evec_subsp(k, i) * t%dr_subsp(:, k)
       end do
     end do
 
@@ -142,6 +170,8 @@ subroutine sqnm_step(t, x, f_of_x, df_dx, dir_of_descent)
     do i = 1, dim_subsp
       t%h_eval(i) = sqrt(t%h_eval(i)**2 + t%res(i)**2)
     end do
+
+    print*, 'meigenvaluse', t%h_eval(:dim_subsp)
 
     ! decompose gradient (eq. 16)
     t%dir_of_descent = df_dx
