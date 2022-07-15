@@ -18,7 +18,8 @@ module sqnm
     !! previous derivative of target function
     real(c_double), allocatable, dimension(:, :) :: s
     !! overlap matrix of historylist
-    real(c_double), allocatable, dimension(:, :) :: h_subsp
+    real(c_double), allocatable, dimension(:, :) :: dr_subsp
+    real(c_double), allocatable, dimension(:, :) :: df_subsp
     real(c_double), allocatable, dimension(:, :) :: h_evec_subsp
     real(c_double), allocatable, dimension(:, :) :: h_evec
     real(c_double), allocatable, dimension(:) :: h_eval
@@ -37,9 +38,18 @@ subroutine initialize(t, ndim, nhistx)
   integer(c_int) :: ndim
   integer(c_int) :: nhistx
   
+  t%ndim = ndim
+  t%nhistx = nhistx
+
   allocate(t%s(nhistx, nhistx))
   allocate(t%prev_df_dx(ndim))
-
+  allocate(t%dr_subsp(t%ndim, nhistx))
+  allocate(t%df_subsp(t%ndim, nhistx))
+  allocate(t%h_evec_subsp(nhistx, nhistx), t%h_eval(nhistx))
+  allocate(t%h_evec(ndim, nhistx))
+  allocate(t%res(nhistx))
+  allocate(t%res_temp(ndim))
+  allocate(t%dir_of_descent(ndim))
   
 end subroutine initialize
 
@@ -52,10 +62,9 @@ subroutine step(t, x, f_of_x, df_dx, dir_of_descent)
 
   real(c_double), allocatable, dimension(:, :) :: s_evec
   real(c_double), allocatable, dimension(:) :: s_eval
-  real(c_double), allocatable, dimension(:, :) :: dr_subsp
-  real(c_double), allocatable, dimension(:, :) :: df_subsp
+
   integer :: dim_subsp
-  integer :: i, ihist
+  integer :: i, ihist, k, j
 
   ! lapack variables
   INTEGER :: info
@@ -67,8 +76,7 @@ subroutine step(t, x, f_of_x, df_dx, dir_of_descent)
   t%nhist = t%x_list%get_length()
 
   if ( t%nhist == 0 ) then !! first step
-    dir_of_descent = - t%alpha * df_dx
-    t%dir_of_descent = dir_of_descent
+    t%dir_of_descent = - t%alpha * df_dx
   else
     ! calculate gainratio
     t%gainratio = (f_of_x - t%prev_f) / (.5d0 * dot_product(t%dir_of_descent, t%prev_df_dx))
@@ -90,23 +98,67 @@ subroutine step(t, x, f_of_x, df_dx, dir_of_descent)
     end do
 
     ! compute eq. 11
-    allocate(dr_subsp(t%ndim, dim_subsp))
-    dr_subsp = 0.d0
-    allocate(df_subsp(t%ndim, dim_subsp))
-    df_subsp = 0.d0
+
+    t%dr_subsp(:, :dim_subsp) = 0.d0
+    t%df_subsp(:, :dim_subsp) = 0.d0
     do i = 1, dim_subsp
       do ihist = 1, t%nhist
-        dr_subsp(:, i) = s_evec(ihist, i) * t%x_list%norm_diff_list(:, ihist)
-        df_subsp(:, i) = s_evec(ihist, i) * t%flist%diff_list(:, ihist) &
+        t%dr_subsp(:, i) = s_evec(ihist, i) * t%x_list%norm_diff_list(:, ihist)
+        t%df_subsp(:, i) = s_evec(ihist, i) * t%flist%diff_list(:, ihist) &
           / norm2(t%x_list%diff_list(:, i)) 
       end do
-      dr_subsp(:, i) = dr_subsp(:, i) / sqrt(s_eval(i))
-      df_subsp(:, i) = df_subsp(:, i) / sqrt(s_eval(i))
+      t%dr_subsp(:, i) = t%dr_subsp(:, i) / sqrt(s_eval(i))
+      t%df_subsp(:, i) = t%df_subsp(:, i) / sqrt(s_eval(i))
     end do
 
+    !! compute eq. 13
+    t%h_evec_subsp(:dim_subsp, :dim_subsp) = .5d0 * (matmul(transpose(t%df_subsp(:dim_subsp, :dim_subsp))&
+        , t%dr_subsp(:dim_subsp, :dim_subsp)) &
+        + matmul(transpose(t%dr_subsp(:dim_subsp, :dim_subsp))&
+        , t%df_subsp(:dim_subsp, :dim_subsp)))
+    call dsyev('v', 'l', dim_subsp, t%h_evec_subsp, dim_subsp, t%h_eval, work, lwork, info)
 
+    ! compute eq. 15
+    t%h_evec = 0.d0
+    do i = 1, dim_subsp
+      do k = 1, dim_subsp
+        t%h_evec(:, i) = t%h_evec_subsp(:, i) * t%dr_subsp(:, k)
+      end do
+    end do
+
+    ! compute eq. 20
+    do j = 1, dim_subsp
+      t%res_temp = - t%h_eval(j) * t%h_evec(:, j)
+      do k = 1, dim_subsp
+        t%res_temp = t%res_temp + t%h_evec_subsp(k, j) * t%df_subsp(:, k)
+      end do
+      t%res(j) = norm2(t%res_temp)
+    end do
+
+    ! modify eigenvalues (eq. 18)
+    do i = 1, dim_subsp
+      t%h_eval(i) = sqrt(t%h_eval(i)**2 + t%res(i)**2)
+    end do
+
+    ! decompose gradient (eq. 16)
+    t%dir_of_descent = df_dx
+    do i = 1, dim_subsp
+      t%dir_of_descent = t%dir_of_descent &
+        - sum(t%h_evec(:, i)*df_dx) * t%h_evec(:, i)
+    end do
+    t%dir_of_descent = t%dir_of_descent * t%alpha
+
+    ! apply preconditioning to remaining gradien (eq. 21)
+    do i = 1, dim_subsp
+      t%dir_of_descent = t%dir_of_descent & 
+        + sum(df_dx * t%h_evec(:, i)) * t%h_evec(:, i) / t%h_eval(i)
+    end do
+
+    t%dir_of_descent = - t%dir_of_descent
 
   end if
+
+  dir_of_descent = t%dir_of_descent
   t%prev_f = f_of_x
   t%prev_df_dx = df_dx
   
