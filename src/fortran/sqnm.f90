@@ -26,12 +26,12 @@ module sqnm
     real(c_double) :: gainratio
     integer :: nhist
     contains
-    procedure :: initialize
-    procedure :: step
+    procedure :: initialize_sqnm
+    procedure :: sqnm_step
   end type sqnm_optimizer
 contains
 
-subroutine initialize(t, ndim, nhistx, alpha, alpha0, eps_subsp)
+subroutine initialize_sqnm(t, ndim, nhistx, alpha, alpha0, eps_subsp)
   class(sqnm_optimizer) :: t
   integer(c_int) :: ndim
   integer(c_int) :: nhistx
@@ -54,9 +54,9 @@ subroutine initialize(t, ndim, nhistx, alpha, alpha0, eps_subsp)
   allocate(t%res_temp(ndim))
   allocate(t%dir_of_descent(ndim))
   
-end subroutine initialize
+end subroutine initialize_sqnm
 
-subroutine step(t, x, f_of_x, df_dx, dir_of_descent)
+subroutine sqnm_step(t, x, f_of_x, df_dx, dir_of_descent)
   class(sqnm_optimizer) :: t
   real(c_double), intent(in) :: x(t%ndim)
   real(c_double), intent(in) :: f_of_x
@@ -165,6 +165,6 @@ subroutine step(t, x, f_of_x, df_dx, dir_of_descent)
   t%prev_f = f_of_x
   t%prev_df_dx = df_dx
   
-end subroutine step
+end subroutine sqnm_step
 
 end module sqnm
