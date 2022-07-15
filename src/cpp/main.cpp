@@ -77,7 +77,7 @@ int main(int argc, char **argv) {
   // call this constructor for fixed cell optimization:
   //periodic_optimizer test(nat, 2.0, 10, 1.e-2, 1.e-4);
 
-  for (int i = 0; i < 30; i++)
+  for (int i = 0; i < 5; i++)
   {
     // call this step function for variable cell shape optimization
     test.step(r, epot, f, lat_a, lat_b, lat_c, stress);

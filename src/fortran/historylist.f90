@@ -26,6 +26,7 @@ contains
     t%icount = 1
     t%ndim = ndim
     t%nhistx = nhistx
+    print*, ndim, nhistx
     allocate(t%list(ndim, nhistx), t%diff_list(ndim, nhistx))
     allocate(t%old_x(ndim), t%norm_diff_list(ndim, nhistx))
   end subroutine init
@@ -35,31 +36,34 @@ contains
     real(c_double), intent(in) :: x(t%ndim)
     integer :: i
    
+    print*, 'icoutn', t%icount
     if ( t%icount <= t%nhistx) then ! list not yet full
+      print*, 'not yet full'
       t%list(:, t%icount) = x
       do i = 2, t%icount
         t%diff_list(:, i - 1) = t%list(:, i) - t%list(:, i - 1)
-        t%norm_diff_list(:, i-1) = t%norm_diff_list(:, i-1) / norm2(t%norm_diff_list(:, i-1))
+        t%norm_diff_list(:, i-1) = t%diff_list(:, i-1) / norm2(t%diff_list(:, i-1))
       end do
       t%icount = t%icount + 1
     else ! list is full
+      print*, 'list full'
       t%old_x = t%list(:, 1)
       do i = 1, t%nhistx - 1
         t%list(:, i) = t%list(:, i + 1)                
       end do
       t%list(:, t%nhistx) = x
       t%diff_list(:, 1) =  t%list(:, 1) - t%old_x
-      t%norm_diff_list(:, 1) = t%norm_diff_list(:, 1) / norm2(t%norm_diff_list(:, 1))
+      t%norm_diff_list(:, 1) = t%diff_list(:, 1) / norm2(t%diff_list(:, 1))
       do i = 2, t%nhistx
         t%diff_list(:, i) = t%diff_list(:, i) - t%diff_list(:, i - 1)
-        t%norm_diff_list(:, i) = t%norm_diff_list(:, i) / norm2(t%norm_diff_list(:, i))
+        t%norm_diff_list(:, i) = t%diff_list(:, i) / norm2(t%diff_list(:, i))
       end do
     end if
   end subroutine add
 
   integer function get_length(t)
     class(hist_list) :: t
-    get_length = t%icount - 1
+    get_length = t%icount - 2
   end function get_length
 
 end module historylist

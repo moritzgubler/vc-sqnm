@@ -26,7 +26,7 @@ contains
       , lattice_weigth, alpha0, eps_subsp)
     class(optimizer_periodic) :: t
     integer(c_int), intent(in) :: nat
-    real(c_double), intent(in) :: init_lat
+    real(c_double), intent(in) :: init_lat(3, 3)
     real(c_double), intent(in) :: initial_step_size
     integer(c_int), intent(in) :: nhist_max
     real(c_double), intent(in) :: lattice_weigth
@@ -78,7 +78,7 @@ contains
 
     ! transform lattice and derivatives
     a_tilde = matmul(alat, t%lattice_transformer)
-    df_da_tilde = - deralat * t%lattice_transformer_inv
+    df_da_tilde = - matmul(deralat, t%lattice_transformer_inv)
 
     q_and_lat(:, :t%nat) = q
     q_and_lat(:, t%nat+1:t%nat+3) = a_tilde
@@ -86,8 +86,9 @@ contains
     dq_and_dlat(:, t%nat+1:t%nat+3) = df_da_tilde
 
     call t%sqnm_opt%sqnm_step(q_and_lat, epot, dq_and_dlat, dd)
+    !print*, 'dd', norm2(dd)
 
-    dq_and_dlat = dq_and_dlat + dd
+    q_and_lat = q_and_lat + dd
 
     q = q_and_lat(:, :t%nat)
     a_tilde = q_and_lat(:, t%nat+1:t%nat+3)
