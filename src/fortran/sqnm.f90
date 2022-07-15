@@ -16,8 +16,6 @@ module sqnm
     !! previous value of target function
     real(c_double), allocatable, dimension(:) :: prev_df_dx
     !! previous derivative of target function
-    real(c_double), allocatable, dimension(:, :) :: s
-    !! overlap matrix of historylist
     real(c_double), allocatable, dimension(:, :) :: dr_subsp
     real(c_double), allocatable, dimension(:, :) :: df_subsp
     real(c_double), allocatable, dimension(:, :) :: h_evec_subsp
@@ -33,15 +31,20 @@ module sqnm
   end type sqnm_optimizer
 contains
 
-subroutine initialize(t, ndim, nhistx)
+subroutine initialize(t, ndim, nhistx, alpha, alpha0, eps_subsp)
   class(sqnm_optimizer) :: t
   integer(c_int) :: ndim
   integer(c_int) :: nhistx
+  real(c_double) :: alpha
+  real(c_double) :: alpha0
+  real(c_double) :: eps_subsp
   
   t%ndim = ndim
   t%nhistx = nhistx
+  t%alpha = alpha
+  t%alpha0 = alpha0
+  t%eps_subsp = eps_subsp
 
-  allocate(t%s(nhistx, nhistx))
   allocate(t%prev_df_dx(ndim))
   allocate(t%dr_subsp(t%ndim, nhistx))
   allocate(t%df_subsp(t%ndim, nhistx))
