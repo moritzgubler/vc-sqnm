@@ -16,6 +16,8 @@ module sqnm
     !! previous value of target function
     real(c_double), allocatable, dimension(:) :: prev_df_dx
     !! previous derivative of target function
+    real(c_double), allocatable, dimension(:, :) :: s_evec
+    real(c_double), allocatable, dimension(:) :: s_eval
     real(c_double), allocatable, dimension(:, :) :: dr_subsp
     real(c_double), allocatable, dimension(:, :) :: df_subsp
     real(c_double), allocatable, dimension(:, :) :: h_evec_subsp
@@ -25,6 +27,10 @@ module sqnm
     real(c_double), allocatable, dimension(:) :: res_temp
     real(c_double) :: gainratio
     integer :: nhist
+
+    INTEGER :: lwork
+    REAL(8), DIMENSION(:), ALLOCATABLE:: work
+
     contains
     procedure :: initialize_sqnm
     procedure :: sqnm_step
@@ -47,6 +53,7 @@ subroutine initialize_sqnm(t, ndim, nhistx, alpha, alpha0, eps_subsp)
   call t%x_list%init(ndim, nhistx)
   call t%flist%init(ndim, nhistx)
 
+  allocate(t%s_evec(t%nhistx, t%nhistx), t%s_eval(t%nhistx))
   allocate(t%prev_df_dx(ndim))
   allocate(t%dr_subsp(t%ndim, nhistx))
   allocate(t%df_subsp(t%ndim, nhistx))
@@ -56,6 +63,9 @@ subroutine initialize_sqnm(t, ndim, nhistx, alpha, alpha0, eps_subsp)
   allocate(t%res(nhistx))
   allocate(t%res_temp(ndim))
   allocate(t%dir_of_descent(ndim))
+
+  t%lwork = 100 * t%nhistx
+  allocate(t%work(t%lwork))
   
 end subroutine initialize_sqnm
 
@@ -66,16 +76,12 @@ subroutine sqnm_step(t, x, f_of_x, df_dx, dir_of_descent)
   real(c_double), intent(in) :: df_dx(t%ndim)
   real(c_double), intent(out) :: dir_of_descent(t%ndim)
 
-  real(c_double), allocatable, dimension(:, :) :: s_evec
-  real(c_double), allocatable, dimension(:) :: s_eval
 
   integer :: dim_subsp
   integer :: i, ihist, k, j
 
   ! lapack variables
   INTEGER :: info
-  INTEGER :: lwork
-  REAL(8), DIMENSION(:), ALLOCATABLE:: work
 
   call t%x_list%add(x)
   call t%flist%add(df_dx)
@@ -90,44 +96,42 @@ subroutine sqnm_step(t, x, f_of_x, df_dx, dir_of_descent)
     if (t%gainratio > 1.05d0) t%alpha = t%alpha * 1.05d0
 
 
-    allocate(s_evec(t%nhist, t%nhist), s_eval(t%nhist))
     ! calculate overlab matrix of basis
-    s_evec =  matmul(transpose(t%x_list%norm_diff_list(:, :t%nhist))&
+    t%s_evec(:t%nhist, :t%nhist) =  matmul(transpose(t%x_list%norm_diff_list(:, :t%nhist)) &
     , t%x_list%norm_diff_list(:, :t%nhist))
-    lwork = 100 * t%nhist
-    allocate(work(lwork))
-    call dsyev('v', 'u', t%nhist, s_evec, t%nhist, s_eval, work, lwork, info)
+    call dsyev('v', 'u', t%nhist, t%s_evec(:t%nhist, :t%nhist), t%nhist, t%s_eval(:t%nhist) &
+      , t%work, t%lwork, info)
     if (info /= 0) stop 's dsyev'
 
     dim_subsp = 0
     do i = 1, t%nhist
-      if (s_eval(i) / s_eval(1) > t%eps_subsp) then
+      if (t%s_eval(i) / t%s_eval(1) > t%eps_subsp) then
         dim_subsp = dim_subsp + 1
       else
         print*, 'remove dimension'
       end if
     end do
-    s_eval(1:dim_subsp) = s_eval((t%nhist - dim_subsp + 1):)
-    s_evec(:, 1:dim_subsp) = s_evec(:, (t%nhist - dim_subsp + 1):)
+    t%s_eval(1:dim_subsp) = t%s_eval((t%nhist - dim_subsp + 1):)
+    t%s_evec(:, 1:dim_subsp) = t%s_evec(:, (t%nhist - dim_subsp + 1):)
 
     ! compute eq. 11
     t%dr_subsp(:,:dim_subsp) = 0.d0
     t%df_subsp(:,:dim_subsp) = 0.d0
     do i = 1, dim_subsp
       do ihist = 1, t%nhist
-        t%dr_subsp(:, i) = t%dr_subsp(:, i) + s_evec(ihist, i) * t%x_list%norm_diff_list(:, ihist)
-        t%df_subsp(:, i) = t%df_subsp(:, i) + s_evec(ihist, i) * t%flist%diff_list(:, ihist) &
+        t%dr_subsp(:, i) = t%dr_subsp(:, i) + t%s_evec(ihist, i) * t%x_list%norm_diff_list(:, ihist)
+        t%df_subsp(:, i) = t%df_subsp(:, i) + t%s_evec(ihist, i) * t%flist%diff_list(:, ihist) &
           / norm2(t%x_list%diff_list(:, ihist)) 
       end do
-      t%dr_subsp(:, i) = t%dr_subsp(:, i) / sqrt(s_eval(i))
-      t%df_subsp(:, i) = t%df_subsp(:, i) / sqrt(s_eval(i))
+      t%dr_subsp(:, i) = t%dr_subsp(:, i) / sqrt(t%s_eval(i))
+      t%df_subsp(:, i) = t%df_subsp(:, i) / sqrt(t%s_eval(i))
     end do
 
     !! compute eq. 13
     t%h_evec_subsp(:dim_subsp, :dim_subsp) = .5d0 * (matmul(transpose(t%df_subsp(:,:dim_subsp)), t%dr_subsp(:,:dim_subsp)) &
         + matmul(transpose(t%dr_subsp(:,:dim_subsp)), t%df_subsp(:,:dim_subsp)))
     call dsyev('v', 'l', dim_subsp, t%h_evec_subsp(:dim_subsp, :dim_subsp)&
-      , dim_subsp, t%h_eval(:dim_subsp), work, lwork, info)
+      , dim_subsp, t%h_eval(:dim_subsp), t%work, t%lwork, info)
     if (info  /= 0 ) stop 'h_eval dsyev'
 
     ! compute eq. 15
