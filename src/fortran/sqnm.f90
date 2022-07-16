@@ -16,9 +16,9 @@ module sqnm
     !! previous value of target function
     real(c_double), allocatable, dimension(:) :: prev_df_dx
     !! previous derivative of target function
-    !real(c_double), allocatable, dimension(:, :) :: dr_subsp
-    !real(c_double), allocatable, dimension(:, :) :: df_subsp
-    !real(c_double), allocatable, dimension(:, :) :: h_evec_subsp
+    real(c_double), allocatable, dimension(:, :) :: dr_subsp
+    real(c_double), allocatable, dimension(:, :) :: df_subsp
+    real(c_double), allocatable, dimension(:, :) :: h_evec_subsp
     real(c_double), allocatable, dimension(:, :) :: h_evec
     real(c_double), allocatable, dimension(:) :: h_eval
     real(c_double), allocatable, dimension(:) :: res
@@ -48,11 +48,11 @@ subroutine initialize_sqnm(t, ndim, nhistx, alpha, alpha0, eps_subsp)
   call t%flist%init(ndim, nhistx)
 
   allocate(t%prev_df_dx(ndim))
-  !allocate(t%dr_subsp(t%ndim, nhistx))
-  !allocate(t%df_subsp(t%ndim, nhistx))
-  !allocate(t%h_evec_subsp(nhistx, nhistx))
+  allocate(t%dr_subsp(t%ndim, nhistx))
+  allocate(t%df_subsp(t%ndim, nhistx))
+  allocate(t%h_evec_subsp(t%nhistx, t%nhistx))
   allocate(t%h_eval(nhistx))
-  allocate(t%h_evec(ndim, nhistx))
+  allocate(t%h_evec(t%ndim, t%nhistx))
   allocate(t%res(nhistx))
   allocate(t%res_temp(ndim))
   allocate(t%dir_of_descent(ndim))
@@ -76,10 +76,6 @@ subroutine sqnm_step(t, x, f_of_x, df_dx, dir_of_descent)
   INTEGER :: info
   INTEGER :: lwork
   REAL(8), DIMENSION(:), ALLOCATABLE:: work
-
-  real(c_double), allocatable, dimension(:, :) :: dr_subsp
-  real(c_double), allocatable, dimension(:, :) :: df_subsp
-  real(c_double), allocatable, dimension(:, :) :: h_evec_subsp
 
   call t%x_list%add(x)
   call t%flist%add(df_dx)
@@ -115,32 +111,30 @@ subroutine sqnm_step(t, x, f_of_x, df_dx, dir_of_descent)
     s_evec(:, 1:dim_subsp) = s_evec(:, (t%nhist - dim_subsp + 1):)
 
     ! compute eq. 11
-    allocate(dr_subsp(t%ndim, dim_subsp))
-    allocate(df_subsp(t%ndim, dim_subsp))
-    dr_subsp = 0.d0
-    df_subsp = 0.d0
+    t%dr_subsp(:,:dim_subsp) = 0.d0
+    t%df_subsp(:,:dim_subsp) = 0.d0
     do i = 1, dim_subsp
       do ihist = 1, t%nhist
-        dr_subsp(:, i) = dr_subsp(:, i) + s_evec(ihist, i) * t%x_list%norm_diff_list(:, ihist)
-        df_subsp(:, i) = df_subsp(:, i) + s_evec(ihist, i) * t%flist%diff_list(:, ihist) &
+        t%dr_subsp(:, i) = t%dr_subsp(:, i) + s_evec(ihist, i) * t%x_list%norm_diff_list(:, ihist)
+        t%df_subsp(:, i) = t%df_subsp(:, i) + s_evec(ihist, i) * t%flist%diff_list(:, ihist) &
           / norm2(t%x_list%diff_list(:, ihist)) 
       end do
-      dr_subsp(:, i) = dr_subsp(:, i) / sqrt(s_eval(i))
-      df_subsp(:, i) = df_subsp(:, i) / sqrt(s_eval(i))
+      t%dr_subsp(:, i) = t%dr_subsp(:, i) / sqrt(s_eval(i))
+      t%df_subsp(:, i) = t%df_subsp(:, i) / sqrt(s_eval(i))
     end do
 
     !! compute eq. 13
-    allocate(h_evec_subsp(dim_subsp, dim_subsp))
-    h_evec_subsp = .5d0 * (matmul(transpose(df_subsp), dr_subsp) &
-        + matmul(transpose(dr_subsp), df_subsp))
-    call dsyev('v', 'l', dim_subsp, h_evec_subsp, dim_subsp, t%h_eval(:dim_subsp), work, lwork, info)
+    t%h_evec_subsp(:dim_subsp, :dim_subsp) = .5d0 * (matmul(transpose(t%df_subsp(:,:dim_subsp)), t%dr_subsp(:,:dim_subsp)) &
+        + matmul(transpose(t%dr_subsp(:,:dim_subsp)), t%df_subsp(:,:dim_subsp)))
+    call dsyev('v', 'l', dim_subsp, t%h_evec_subsp(:dim_subsp, :dim_subsp)&
+      , dim_subsp, t%h_eval(:dim_subsp), work, lwork, info)
     if (info  /= 0 ) stop 'h_eval dsyev'
 
     ! compute eq. 15
     t%h_evec = 0.d0
     do i = 1, dim_subsp
       do k = 1, dim_subsp
-        t%h_evec(:, i) = t%h_evec(:, i) + h_evec_subsp(k, i) * dr_subsp(:, k)
+        t%h_evec(:, i) = t%h_evec(:, i) + t%h_evec_subsp(k, i) * t%dr_subsp(:, k)
       end do
     end do
 
@@ -148,7 +142,7 @@ subroutine sqnm_step(t, x, f_of_x, df_dx, dir_of_descent)
     do j = 1, dim_subsp
       t%res_temp = - t%h_eval(j) * t%h_evec(:, j)
       do k = 1, dim_subsp
-        t%res_temp = t%res_temp + h_evec_subsp(k, j) * df_subsp(:, k)
+        t%res_temp = t%res_temp + t%h_evec_subsp(k, j) * t%df_subsp(:, k)
       end do
       t%res(j) = norm2(t%res_temp)
     end do
