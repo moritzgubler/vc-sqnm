@@ -33,13 +33,10 @@ program main
     call optimizer%initialize_optimizer(nat, alat, alpha, nhistx, lattice_weigth, alpha0, eps_subsp)
     
     print*, 'rtest', rxyz(:, 1)
-    do i = 1, 5
+    do i = 1, 30
         call energyandforces_bazant(nat, alat, rxyz, epot, fxyz, deralat, stress)
-        print*, 'epot', epot, maxval(abs(fxyz)), maxval(abs(deralat))
-        print*, ' '
+        print*, i-1, 'epot', epot, maxval(abs(fxyz)), maxval(abs(deralat))
         call optimizer%optimizer_step(rxyz, alat, epot, fxyz, deralat)
-        print*, 'rtest', rxyz(:, 1)
-        print*, ' '
     end do
 
 
