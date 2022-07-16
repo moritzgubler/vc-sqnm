@@ -69,7 +69,6 @@ int main(int argc, char **argv) {
 
   read_ascii(fname, nat, r, lat_a, lat_b, lat_c);
   
-  ff_wrapper(nat, r, lat_a, lat_b, lat_c, epot, f, stress);
 
   // call this constructor for variable cell shape optimization
   periodic_optimizer test(nat, lat_a, lat_b, lat_c, 2.0, 10, 2.0, 1.e-2, 1.e-4);
@@ -77,13 +76,15 @@ int main(int argc, char **argv) {
   // call this constructor for fixed cell optimization:
   //periodic_optimizer test(nat, 2.0, 10, 1.e-2, 1.e-4);
 
-  for (int i = 0; i < 5; i++)
+  for (int i = 0; i < 30; i++)
   {
+    ff_wrapper(nat, r, lat_a, lat_b, lat_c, epot, f, stress);
+    cout << i << " energy " << epot << "\n";
+
     // call this step function for variable cell shape optimization
     test.step(r, epot, f, lat_a, lat_b, lat_c, stress);
     // call this step function for fixed cell optimization
     //test.step(r, epot, f);
-    ff_wrapper(nat, r, lat_a, lat_b, lat_c, epot, f, stress);
   }
   
   return 0;

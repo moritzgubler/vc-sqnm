@@ -85,7 +85,12 @@ VectorXd SQNM::step(VectorXd &x, double &f_of_x, VectorXd &df_dx) {
     //println("eq. 8");
     int dim_subsp = 0;
     for (int i = 0; i < S_eval.size(); i++){
-      if (S_eval(i) / S_eval(0) > eps_subsp) dim_subsp+=1;
+      if (S_eval(i) / S_eval(0) > eps_subsp)
+      {
+        dim_subsp+=1;
+      } else{
+        std::cout << "remove dimenstion \n";
+      }
     }
     MatrixXd dr_subsp(ndim, dim_subsp);
     dr_subsp.setZero();
@@ -108,14 +113,9 @@ VectorXd SQNM::step(VectorXd &x, double &f_of_x, VectorXd &df_dx) {
       }
       df_subsp.col(i) /= sqrt(S_eval(i));
     }
-
-    cout << "dr " << dr_subsp.row(0) << "\n";
-    cout << "df " << df_subsp.row(0) << "\n";
-
     // compute eq. 13
     //println("eq. 13");
     h_subsp = .5 * (df_subsp.transpose() * dr_subsp + dr_subsp.transpose() * df_subsp);
-    std::cout << "hsubsp " << h_subsp << "\n";
     esolve.compute(h_subsp);
     h_eval = esolve.eigenvalues();
     h_evec_subsp = esolve.eigenvectors();
@@ -146,9 +146,7 @@ VectorXd SQNM::step(VectorXd &x, double &f_of_x, VectorXd &df_dx) {
     for (int idim = 0; idim < dim_subsp; idim++){
       h_eval(idim) = sqrt(pow(h_eval(idim), 2) + pow(res(idim), 2));
     }
-    cout << "h_eval: \n";
-    cout << h_eval << "\n";
-
+    
     // decompose gradient (eq. 16)
     //println("eq. 16");
     dir_of_descent = df_dx;
