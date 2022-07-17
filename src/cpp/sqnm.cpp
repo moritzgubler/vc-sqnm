@@ -88,10 +88,15 @@ VectorXd SQNM::step(VectorXd &x, double &f_of_x, VectorXd &df_dx) {
       if (S_eval(i) / S_eval(0) > eps_subsp)
       {
         dim_subsp+=1;
-      } else{
-        std::cout << "remove dimenstion \n";
       }
     }
+    // remove dimensions from subspace
+    for (int i = 0; i < dim_subsp; i++)
+    {
+      S_evec.col(i) = S_evec.col(nhist - dim_subsp + i);
+      S_eval(i) = S_eval(nhist - dim_subsp + i);
+    }
+    
     MatrixXd dr_subsp(ndim, dim_subsp);
     dr_subsp.setZero();
     //cout << "dimsp " << dim_subsp << " nhist " << nhist << endl;
