@@ -6,7 +6,7 @@
  * 
  */
 
-#include <eigen3/Eigen/Dense>
+#include <Eigen/Dense>
 #include <iostream>
 #include "sqnm.hpp"
 #include "periodic_optimizer.hpp"

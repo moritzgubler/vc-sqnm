@@ -1,4 +1,4 @@
-#include <eigen3/Eigen/Dense>
+#include <Eigen/Dense>
 #include <iostream>
 #include <string>
 #include <fstream>
@@ -58,9 +58,9 @@ void read_ascii(string &fname, int &nat, MatrixXd &r, Vector3d &lat_a, Vector3d 
 int main(int argc, char **argv) {
 
   int nat = 8;
-  //string fname = argv[1];
+  string fname = argv[1];
   //cout << fname << endl;
-  string fname = "../../test/test.ascii";
+  //string fname = "../../test/test.ascii";
   MatrixXd r(3, nat);
   MatrixXd f(3, nat);
   Vector3d lat_a, lat_b, lat_c;

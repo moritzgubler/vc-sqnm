@@ -1,6 +1,6 @@
 #ifndef PERIODIC_OPTIMIZER_HPP
 #define PERIODIC_OPTIMIZER_HPP
-#include <eigen3/Eigen/Dense>
+#include <Eigen/Dense>
 #include <iostream>
 #include "sqnm.hpp"
 

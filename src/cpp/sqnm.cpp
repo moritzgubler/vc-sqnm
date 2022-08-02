@@ -5,7 +5,7 @@
  * @date 2022-07-13
  * 
  */
-#include <eigen3/Eigen/Dense>
+#include <Eigen/Dense>
 #include <iostream>
 #include <memory>
 #include "historylist.hpp"

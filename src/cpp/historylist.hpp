@@ -1,6 +1,6 @@
 #ifndef HISTORYLIST_HPP
 #define HISTORYLIST_HPP
-#include <eigen3/Eigen/Dense>
+#include <Eigen/Dense>
 
 namespace hlist_space{
 class HistoryList {

@@ -1,6 +1,6 @@
 #ifndef SQNM_HPP
 #define SQNM_HPP
-#include <eigen3/Eigen/Dense>
+#include <Eigen/Dense>
 #include <iostream>
 #include <memory>
 #include "historylist.hpp"
