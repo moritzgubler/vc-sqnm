@@ -4,9 +4,6 @@
 #include <fstream>
 #include "periodic_optimizer.hpp"
 
-using namespace Eigen;
-using namespace std;
-
 #ifdef __cplusplus
 extern"C" {
     #endif
@@ -15,7 +12,7 @@ extern"C" {
 }
 #endif
 
-void ff_wrapper(int &nat, MatrixXd &r, Vector3d &lat_a, Vector3d &lat_b, Vector3d &lat_c, double &etot, MatrixXd &f, Matrix3d &stress){
+void ff_wrapper(int &nat, Eigen::MatrixXd &r, Eigen::Vector3d &lat_a, Eigen::Vector3d &lat_b, Eigen::Vector3d &lat_c, double &etot, Eigen::MatrixXd &f, Eigen::Matrix3d &stress){
   double *pos = r.data();
   double *force = f.data();
   double lat[9];
@@ -31,14 +28,14 @@ void ff_wrapper(int &nat, MatrixXd &r, Vector3d &lat_a, Vector3d &lat_b, Vector3
 
   double stressvec[9];
   forces_bazant(&nat, lat, pos, &etot, force, stressvec);
-  stress = Map<Matrix3d>(stressvec);
-  f = Map<MatrixXd>(force, 3, nat);
+  stress = Eigen::Map<Eigen::Matrix3d>(stressvec);
+  f = Eigen::Map<Eigen::MatrixXd>(force, 3, nat);
 }
 
-void read_ascii(string &fname, int &nat, MatrixXd &r, Vector3d &lat_a, Vector3d &lat_b, Vector3d &lat_c){
+void read_ascii(std::string &fname, int &nat, Eigen::MatrixXd &r, Eigen::Vector3d &lat_a, Eigen::Vector3d &lat_b, Eigen::Vector3d &lat_c){
   std::ifstream ascii_stream(fname);
-  string comment;
-  getline(ascii_stream, comment);
+  std::string comment;
+  std::getline(ascii_stream, comment);
   //cout << comment << endl;
   lat_a.setZero();
   lat_b.setZero();
@@ -58,20 +55,20 @@ void read_ascii(string &fname, int &nat, MatrixXd &r, Vector3d &lat_a, Vector3d 
 int main(int argc, char **argv) {
 
   int nat = 8;
-  string fname = argv[1];
+  std::string fname = argv[1];
   //cout << fname << endl;
   //string fname = "../../test/test.ascii";
-  MatrixXd r(3, nat);
-  MatrixXd f(3, nat);
-  Vector3d lat_a, lat_b, lat_c;
-  Matrix3d stress;
+  Eigen::MatrixXd r(3, nat);
+  Eigen::MatrixXd f(3, nat);
+  Eigen::Vector3d lat_a, lat_b, lat_c;
+  Eigen::Matrix3d stress;
   double epot;
 
   read_ascii(fname, nat, r, lat_a, lat_b, lat_c);
   
 
   // call this constructor for variable cell shape optimization
-  periodic_optimizer test(nat, lat_a, lat_b, lat_c, 2.0, 10, 2.0, 1.e-2, 1.e-4);
+  PES_optimizer::periodic_optimizer test(nat, lat_a, lat_b, lat_c, 2.0, 10, 2.0, 1.e-2, 1.e-4);
 
   // call this constructor for fixed cell optimization:
   //periodic_optimizer test(nat, 2.0, 10, 1.e-2, 1.e-4);
@@ -79,7 +76,7 @@ int main(int argc, char **argv) {
   for (int i = 0; i < 30; i++)
   {
     ff_wrapper(nat, r, lat_a, lat_b, lat_c, epot, f, stress);
-    cout << i << " energy " << epot << "\n";
+    std::cout << i << " energy " << epot << " forcenorm " << f.norm() << "\n";
 
     // call this step function for variable cell shape optimization
     test.step(r, epot, f, lat_a, lat_b, lat_c, stress);

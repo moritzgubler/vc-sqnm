@@ -40,8 +40,8 @@ namespace sqnm_space
       ndim = ndim_;
       nhistx = nhistx_;
       alpha = alpha_;
-      xlist = make_unique<hlist_space::HistoryList>(ndim, nhistx);
-      flist = make_unique<hlist_space::HistoryList>(ndim, nhistx);
+      xlist = std::make_unique<hlist_space::HistoryList>(ndim, nhistx);
+      flist = std::make_unique<hlist_space::HistoryList>(ndim, nhistx);
     }
 
     /**
@@ -57,8 +57,8 @@ namespace sqnm_space
       ndim = ndim_;
       nhistx = nhistx_;
       alpha = alpha_;
-      xlist = make_unique<hlist_space::HistoryList>(ndim, nhistx);
-      flist = make_unique<hlist_space::HistoryList>(ndim, nhistx);
+      xlist = std::make_unique<hlist_space::HistoryList>(ndim, nhistx);
+      flist = std::make_unique<hlist_space::HistoryList>(ndim, nhistx);
       alpha0 = alpha0_;
       eps_subsp = eps_subsp_;
     }
@@ -75,7 +75,7 @@ namespace sqnm_space
      * @param df_dx derivative of the target function evaluated at x.
      * @return VectorXd displacent that can be added to x in order to get new improved coordinates.
      */
-    Eigen::VectorXd step(VectorXd &x, double &f_of_x, VectorXd &df_dx) {
+    Eigen::VectorXd step(Eigen::VectorXd &x, double &f_of_x, Eigen::VectorXd &df_dx) {
       nhist = xlist->add(x);
       flist->add(df_dx);
       if (nhist == 0) { // initial and first step
@@ -199,7 +199,7 @@ namespace sqnm_space
     }
 
     void adjust_stepsize(double &gainratio){
-      if ( gainratio < 0.5 ) alpha = max(alpha * 0.65, alpha0);
+      if ( gainratio < 0.5 ) alpha = std::max(alpha * 0.65, alpha0);
       else if(gainratio > 1.05) alpha = alpha * 1.05;
     }
 
