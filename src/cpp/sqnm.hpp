@@ -1,3 +1,11 @@
+/**
+ * @file sqnm.hpp
+ * @author Moritz Gubler (moritz.gubler@unibas.ch)
+ * @brief Implementation of the SQNM method. More informations about the algorithm can be found here: https://aip.scitation.org/doi/10.1063/1.4905665
+ * @date 2022-07-13
+ * 
+ */
+
 #ifndef SQNM_HPP
 #define SQNM_HPP
 #include <Eigen/Dense>
