@@ -1,6 +1,6 @@
 FC := gfortran
 
-libs:= -llapack -lblas -lperiodicIO
+libs:= -llapack -lblas
 
 ftn_flags := -g -Wall
 
@@ -21,7 +21,7 @@ $(program): $(ftn_obj)
 
 
 clean:
-	rm -rf *.o $(program)
+	rm -rf *.o *.mod $(program)
 
 
 #dependencies
