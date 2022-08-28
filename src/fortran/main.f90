@@ -1,6 +1,28 @@
+!! This is an example in how the period_optimizer module can be used to optimize
+!! both atomic postitions and lattice vectors efficiently.
+
+!! The variable cell shape optimization method is based on the following 
+!! paper: https://arxiv.org/abs/2206.07339
+!! More details about the SQNM optimization method are available here:
+!! https://comphys.unibas.ch/publications/Schaefer2015.pdf
+!! Author of this document: Moritz Gubler 
+
+! Copyright (C) 2022 Moritz Gubler
+!
+! This program is free software: you can redistribute it and/or modify
+! it under the terms of the GNU General Public License as published by
+! the Free Software Foundation, either version 3 of the License, or
+! (at your option) any later version.
+!
+! This program is distributed in the hope that it will be useful,
+! but WITHOUT ANY WARRANTY; without even the implied warranty of
+! MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+! GNU General Public License for more details.
+!
+! You should have received a copy of the GNU General Public License
+! along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
 program main
-    !! this program reads a periodic structure, puts all atoms back into the periodic box
-    !! and writes it to the filename given in the second filename
     use periodic_optimizer
     implicit none
     integer :: nat
@@ -16,26 +38,57 @@ program main
     !! contents of first comment line
   
     real*8, allocatable, dimension(:,:) :: fxyz
-    real(8) :: deralat(3,3), epot, stress(3,3)
+    !! forces acting ot the atoms
+    real(8) :: deralat(3,3)
+    !! negative derivative of the pot, energy w.r. to the lattice vectors
+    real(8) :: epot
+    !! potential energy
+    real(8) :: stress(3,3)
+    !! stress tensor
     type(optimizer_periodic) optimizer
+    !! optimiyer object
     integer :: i
-    real(8) :: alpha = 2.d0, lattice_weigth = 2.d0, alpha0 = 1.d-2, eps_subsp = 1.d-4
+    !! iteration variable
+    real(8) :: alpha = 2.d0
+    !! initial step size. default is 1.0. For systems with hard bonds (e.g. C-C) use a value between and 1.0 and
+    !! 2.5. If a system only contains weaker bonds a value up to 5.0 may speed up the convergence.
+    real(8) :: lattice_weigth = 2.d0
+    !! weight or size of the supercell that is used to transform lattice derivatives. Use a value between 1 and 2. 
+    !! Default is 2.
+    real(8) :: alpha0 = 1.d-2
+    !! Lower limit on the step size. 1.e-2 is the default.
+    real(8) :: eps_subsp = 1.d-4
+    !! Lower limit on linear dependencies of basis vectors in history list. Default 1.e-4.
+    !! Increase this parameter if energy or forces contain noise.
     integer :: nhistx = 10
+    !! Maximal number of steps that will be stored in the history list. 
+    !! Use a value between 3 and 20. Must be <= than 3*nat.
 
     call get_command_argument(1,file_in)
     if ( len_trim(file_in) == 0 ) then
-      stop "first argument must contain input filename"
+      print*, "first argument must contain input filename"
+      stop
     end if
     call get_nat_periodic(file_in, nat)
     allocate(rxyz(3,nat), atomnames(nat), fxyz(3, nat))
     call read_periodic(trim(file_in), nat, rxyz, alat, atomnames, comment)
-  
+
+
+    !! initialize the periodic optimizer object.
     call optimizer%initialize_optimizer(nat, alat, alpha, nhistx, lattice_weigth, alpha0, eps_subsp)
     
     print*, "iteration, potential energy, norm of forces, norm of lattice derivatives"
+
+    !! Loop until convergence criteria are reached. A good choice would be the norm of the 
+    !! forces and lattice derivatives
     do i = 1, 30
+        !! calculate energy, forces and lattice derivatives.
         call energyandforces_bazant(nat, alat, rxyz, epot, fxyz, deralat, stress)
+
         print"(i3, 2x, g0.7, 2x, g0.2, 2x, g0.2)", i-1, epot, maxval(abs(fxyz)), maxval(abs(deralat))
+
+        !! call this method to get atomic coordinates and lattice vectors that are closer to the 
+        !! local mimimun than the previous coordinates. Afterwards evaluate energy and forces again.
         call optimizer%optimizer_step(rxyz, alat, epot, fxyz, deralat)
     end do
 
