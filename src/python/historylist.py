@@ -40,7 +40,7 @@ class HistoryList:
                 self.normalizedDiffList[:, -1] = self.diffList[:, -1] / np.linalg.norm(self.diffList[:, -1])
             return self.nhist_max
 
-    def print(self, n):
+    def print_me(self, n):
         print('histlist')
         print(self.histList)
         print('difflist')
@@ -53,6 +53,6 @@ class HistoryList:
 #for i in range(1, 10):
 #    x = np.ones(2) * i**2
 #    n = a.add(x)
-#    a.print(n)
+#    a.print_me(n)
 #    print('length', n)
 #    print('')
