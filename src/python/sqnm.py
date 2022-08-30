@@ -1,6 +1,5 @@
 import numpy as np
 import historylist
-import time
 
 class SQNM:
     def __init__(self, ndim, nhist_max, alpha, eps_supsp, alpha_min):
