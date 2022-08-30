@@ -26,7 +26,81 @@ class SQNM:
         self.nhist = 0
 
     def sqnm_step(self, x, f_of_x, df_dx):
-        pass
+        self.nhist = self.xlist.add(x)
+        self.flist.add(df_dx)
 
+        # check if first step
+        if self.nhist == 0:
+            self.dir_of_descent = -self.alpha * df_dx
+        else:
+            # calculate and adjust gainratio
+            self.gainratio = (f_of_x - self.prev_f_of_x) / ( .5 * np.dot(self.dir_of_descent, self.prev_df_dx) )
+            if self.gainratio < .5:
+                self.alpha = max(self.alpha_min, self.alpha * .65)
+            if self.gainratio > 1.05:
+                self.alpha *= 1.05
+
+            # calculate overlap matrix of basis
+            self.s_evec[:self.nhist, :self.nhist] = self.xlist.normalizedDiffList[:, :self.nhist].T \
+                @ self.xlist.normalizedDiffList[:, :self.nhist]
+            self.s_eval[:self.nhist], self.s_evec[:self.nhist, self.nhist] \
+                = np.linal.eigh(self.s_evec[:self.nhist, self.nhist])
+
+            # remove noisy directions from subspace
+            dim_subsp = 0
+            for i in range(self.nhist):
+                if self.s_eval[i] / self.s_eval[self.nhist - 1] > self.eps_subsp:
+                    dim_subsp += 1
+
+            self.s_eval[:dim_subsp] = self.s_eval[(self.nhist - dim_subsp):]
+            self.s_evec[:, :dim_subsp] = self.s_evec[:, (self.nhist - dim_subsp):]
+
+            # compute eq. 11
+            self.dr_subsp[:, :] = 0.0
+            self.df_subsp[:, :] = 0.0
+            for i in range(dim_subsp):
+                for ihist in range(self.nhist):
+                    self.dr_subsp[:, i] += self.s_evec[ihist, i] * self.xlist.normalizedDiffList[:, ihist]
+                    self.df_subsp[:, i] += self.s_evec[ihist, i] * self.flist.diffList[:, ihist] \
+                        / np.linalg.norm(self.xlist.diffList[:, ihist])
+                self.dr_subsp[:, i] = self.dr_subsp[:, i] / np.sqrt(self.s_eval[i])
+                self.df_subsp[:, i] = self.df_subsp[:, i] / np.sqrt(self.s_eval[i])
+                    
+            # compute eq 13
+            self.h_evec_subsp[:dim_subsp, :dim_subsp] = .5 * (self.df_subsp[:, :dim_subsp].T @ self.dr_subsp[:, :dim_subsp] \
+                + self.dr_subsp[:, :dim_subsp].T @ self.df_subsp[:, :dim_subsp] )
+            self.h_eval[:dim_subsp], self.h_evec_subsp[:dim_subsp, :dim_subsp] \
+                = np.linalg.eigh(self.h_evec_subsp[:dim_subsp, :dim_subsp])
+            
+            # compute eq. 15
+            self.h_evec[:, :] = 0.0
+            for i in range(dim_subsp):
+                for k in range(dim_subsp):
+                    self.h_evec[:, i] += self.h_evec_subsp[k, i] * self.dr_subsp[:, k]
+
+            # compute eq. 20
+            for j in range(dim_subsp):
+                self.res_temp = - self.h_eval[j] * self.h_evec[:, j]
+                for k in range(dim_subsp):
+                    self.res_temp += self.h_evec_subsp[k, j] * self.df_subsp[:, k]
+                self.res[j] = np.linalg(self.res_temp)
+
+            # modify eigenvalues according to eq. 18
+            self.h_eval[:dim_subsp] = np.sqrt(self.h_eval[:dim_subsp]**2 + self.res[:dim_subsp]**2)
+
+            # decompose gradient according to eq. 16
+            self.dir_of_descent = df_dx
+            for i in range(dim_subsp):
+                self.dir_of_descent -= np.dot(self.h_evec[:, i], df_dx) * self.h_evec[:, i]
+            self.dir_of_descent = self.dir_of_descent * self.alpha
+
+            # apply preconditioning to subspace gradient (eq. 21)
+            for idim in range(dim_subsp):
+                self.dir_of_descent += np.dot( df_dx, self.h_evec[:, idim] ) / self.h_eval[idim] * self.h_evec[:, idim]
+
+            self.dir_of_descent = - self.dir_of_descent
+        self.prev_f_of_x = f_of_x
+        self.prev_df_dx = df_dx
+        return self.dir_of_descent
 
 
