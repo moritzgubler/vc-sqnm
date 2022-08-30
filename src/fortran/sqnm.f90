@@ -127,14 +127,14 @@ subroutine sqnm_step(t, x, f_of_x, df_dx, dir_of_descent)
 
     dim_subsp = 0
     do i = 1, t%nhist
-      if (t%s_eval(i) / t%s_eval(1) > t%eps_subsp) then
+      if (t%s_eval(i) / t%s_eval(t%nhist) > t%eps_subsp) then
         dim_subsp = dim_subsp + 1
-      else
-        print*, 'remove dimension'
+      !else
+      !  print*, 'remove dimension'
       end if
     end do
-    t%s_eval(1:dim_subsp) = t%s_eval((t%nhist - dim_subsp + 1):)
-    t%s_evec(:, 1:dim_subsp) = t%s_evec(:, (t%nhist - dim_subsp + 1):)
+    t%s_eval(1:dim_subsp) = t%s_eval((t%nhist - dim_subsp + 1):t%nhist)
+    t%s_evec(:, 1:dim_subsp) = t%s_evec(:, (t%nhist - dim_subsp + 1):t%nhist)
 
     ! compute eq. 11
     t%dr_subsp(:,:dim_subsp) = 0.d0
