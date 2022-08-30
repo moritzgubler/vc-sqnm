@@ -22,7 +22,7 @@ class HistoryList:
                 self.normalizedDiffList[:, self.icount - 2] = self.diffList[:, self.icount - 2 ] / np.linalg.norm(self.diffList[:, self.icount - 2 ])
             return self.icount - 1
         else:
-            print('list full')
+            # print('list full')
             self.oldElem = self.histList[:, 0]
             # make place in history list
             self.histList[:, :(self.nhist_max-1)] = self.histList[:, 1:(self.nhist_max)]
