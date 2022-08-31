@@ -47,24 +47,16 @@ class SQNM:
                 = np.linalg.eigh(self.s_evec[:self.nhist, :self.nhist])
 
             # remove noisy directions from subspace
-            dim_subsp = 0
-            for i in range(self.nhist):
-                if self.s_eval[i] / self.s_eval[self.nhist - 1] > self.eps_subsp:
-                    dim_subsp += 1
+            dim_subsp = sum(self.s_eval[:self.nhist] / self.s_eval[self.nhist - 1] > self.eps_subsp)
 
             self.s_eval[:dim_subsp] = self.s_eval[(self.nhist - dim_subsp):self.nhist]
             self.s_evec[:, :dim_subsp] = self.s_evec[:, (self.nhist - dim_subsp):self.nhist]
 
             # compute eq. 11
-            self.dr_subsp[:, :] = 0.0
-            self.df_subsp[:, :] = 0.0
-            for i in range(dim_subsp):
-                for ihist in range(self.nhist):
-                    self.dr_subsp[:, i] += self.s_evec[ihist, i] * self.xlist.normalizedDiffList[:, ihist]
-                    self.df_subsp[:, i] += self.s_evec[ihist, i] * self.flist.diffList[:, ihist] \
-                        / np.linalg.norm(self.xlist.diffList[:, ihist])
-                self.dr_subsp[:, i] = self.dr_subsp[:, i] / np.sqrt(self.s_eval[i])
-                self.df_subsp[:, i] = self.df_subsp[:, i] / np.sqrt(self.s_eval[i])
+            self.dr_subsp[:, :dim_subsp] = np.einsum('hi,kh->ki', self.s_evec[:self.nhist,:dim_subsp], self.xlist.normalizedDiffList[:, :self.nhist])\
+                / np.sqrt(self.s_eval[:dim_subsp])
+            self.df_subsp[:, :dim_subsp] = np.einsum('hi,kh,h->ki', self.s_evec[:self.nhist,:dim_subsp], self.flist.diffList[:, :self.nhist], np.divide(1.0, np.linalg.norm(self.xlist.diffList[:, :self.nhist], axis=0)) )\
+                / np.sqrt(self.s_eval[:dim_subsp])
                     
             # compute eq 13
             self.h_evec_subsp[:dim_subsp, :dim_subsp] = .5 * (self.df_subsp[:, :dim_subsp].T @ self.dr_subsp[:, :dim_subsp] \
@@ -73,31 +65,26 @@ class SQNM:
                 = np.linalg.eigh(self.h_evec_subsp[:dim_subsp, :dim_subsp])
             
             # compute eq. 15
-            self.h_evec[:, :] = 0.0
-            for i in range(dim_subsp):
-                for k in range(dim_subsp):
-                    self.h_evec[:, i] += self.h_evec_subsp[k, i] * self.dr_subsp[:, k]
+            self.h_evec[:, :dim_subsp] = np.einsum('ki,hk->hi', self.h_evec_subsp[:dim_subsp, :dim_subsp], self.dr_subsp[:, :dim_subsp])
 
             # compute eq. 20
             for j in range(dim_subsp):
-                self.res_temp = - self.h_eval[j] * self.h_evec[:, j]
-                for k in range(dim_subsp):
-                    self.res_temp += self.h_evec_subsp[k, j] * self.df_subsp[:, k]
+                self.res_temp = - self.h_eval[j] * self.h_evec[:, j] \
+                    + np.einsum('k, ik-> i', self.h_evec_subsp[:dim_subsp, j], self.df_subsp[:, :dim_subsp])
                 self.res[j] = np.linalg.norm(self.res_temp)
 
             # modify eigenvalues according to eq. 18
             self.h_eval[:dim_subsp] = np.sqrt(self.h_eval[:dim_subsp]**2 + self.res[:dim_subsp]**2)
 
             # decompose gradient according to eq. 16
-            self.dir_of_descent = df_dx
-            for i in range(dim_subsp):
-                self.dir_of_descent = self.dir_of_descent - np.dot(self.h_evec[:, i], df_dx) * self.h_evec[:, i]
+            self.dir_of_descent = df_dx - np.einsum('i, ki -> k', self.h_evec[:, :dim_subsp].T @ df_dx, self.h_evec[:, :dim_subsp])
+
             self.dir_of_descent = self.dir_of_descent * self.alpha
 
             # apply preconditioning to subspace gradient (eq. 21)
-            for idim in range(dim_subsp):
-                self.dir_of_descent = self.dir_of_descent + np.dot( df_dx, self.h_evec[:, idim] ) * self.h_evec[:, idim] / self.h_eval[idim]
-            #print('dd2', self.dir_of_descent)
+            self.dir_of_descent = self.dir_of_descent + \
+                np.einsum('i, ki, i -> k', self.h_evec[:,:dim_subsp].T @ df_dx\
+                , self.h_evec[:, :dim_subsp], np.divide(1.0, self.h_eval[:dim_subsp]) )
 
             self.dir_of_descent = - self.dir_of_descent
         self.prev_f_of_x = f_of_x
