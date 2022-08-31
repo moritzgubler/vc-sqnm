@@ -1,5 +1,5 @@
 # vc-sqnm
-Implementation of the vc-sqnm and sqnm optimization algorithms in C++ and in fortran
+Implementation of the vc-sqnm and sqnm optimization algorithms in C++, FORTRAN and Python.
 
 The stabilized quasi Newton method (SQNM) is a fast and reliable optimization method that is well adapted to find local minima on the potential energy surface. When using the SQNM method please cite [the initial SQNM paper](https://aip.scitation.org/doi/10.1063/1.4905665).
 
