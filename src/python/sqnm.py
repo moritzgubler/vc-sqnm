@@ -1,5 +1,6 @@
 import numpy as np
 import historylist
+import time
 
 class SQNM:
     def __init__(self, ndim, nhist_max, alpha, eps_supsp, alpha_min):
@@ -21,7 +22,6 @@ class SQNM:
         self.h_evec = np.zeros((ndim, nhist_max))
         self.h_eval = np.zeros(nhist_max)
         self.res = np.zeros(nhist_max)
-        self.res_temp = np.zeros(ndim)
         self.gainratio = 0.0
         self.nhist = 0
 
@@ -68,18 +68,16 @@ class SQNM:
             self.h_evec[:, :dim_subsp] = np.einsum('ki,hk->hi', self.h_evec_subsp[:dim_subsp, :dim_subsp], self.dr_subsp[:, :dim_subsp])
 
             # compute eq. 20
-            for j in range(dim_subsp):
-                self.res_temp = - self.h_eval[j] * self.h_evec[:, j] \
-                    + np.einsum('k, ik-> i', self.h_evec_subsp[:dim_subsp, j], self.df_subsp[:, :dim_subsp])
-                self.res[j] = np.linalg.norm(self.res_temp)
+            self.res[:dim_subsp] = np.linalg.norm(
+                - self.h_eval[:dim_subsp] * self.h_evec[:, :dim_subsp] 
+                + self.df_subsp[:, :dim_subsp] @ self.h_evec_subsp[:dim_subsp, :dim_subsp]
+                , axis = 0)
 
             # modify eigenvalues according to eq. 18
             self.h_eval[:dim_subsp] = np.sqrt(self.h_eval[:dim_subsp]**2 + self.res[:dim_subsp]**2)
 
             # decompose gradient according to eq. 16
-            self.dir_of_descent = df_dx - np.einsum('i, ki -> k', self.h_evec[:, :dim_subsp].T @ df_dx, self.h_evec[:, :dim_subsp])
-
-            self.dir_of_descent = self.dir_of_descent * self.alpha
+            self.dir_of_descent = (df_dx - np.einsum('i, ki -> k', self.h_evec[:, :dim_subsp].T @ df_dx, self.h_evec[:, :dim_subsp])) * self.alpha
 
             # apply preconditioning to subspace gradient (eq. 21)
             self.dir_of_descent = self.dir_of_descent + \
@@ -105,8 +103,8 @@ def test_fun(x):
 
 
 n = 400
-nhistx = 20
-alpha = .1
+nhistx = 10
+alpha = .005
 x = np.zeros(n)
 x[:] = 1.0
 x[1] = 1.4
@@ -114,11 +112,11 @@ x[1] = 1.4
 opt = SQNM(n, nhistx, alpha, 1e-4, 1e-2)
 
 
-for i in range(40):
+for i in range(100):
     f, df = test_fun(x)
     print(i)
     print('norm of x', np.linalg.norm(x))
-    print(f)
+    print('f(x)', f)
     print('norm of forces', np.linalg.norm(df))
     print('')
     t1 = time.time()
