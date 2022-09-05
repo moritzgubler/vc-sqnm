@@ -1,9 +1,10 @@
+#!/usr/bin/env python3
 import numpy as np
 import sqnm
-#import bazant
-#from ase import io
-#import sys
-#import time
+import bazant
+from ase import io
+import sys
+import time
 
 class periodic_sqnm:
 
@@ -41,33 +42,33 @@ class periodic_sqnm:
 
         return pos, alat
 
-"""
-def energyandforces(nat, pos, alat):
+    def lower_limit(self):
+        return self.optimizer.lower_limit()
+
+
+def _energyandforces(nat, pos, alat):
     epot, forces, deralat = bazant.energyandforces_bazant(alat, pos, nat)
-    return epot, forces, deralat
+    return epot + 1.3670604955980028, forces, deralat
+
+def _tests():
+    b2a = Bohr_Ang = 0.52917721067
+
+    filename = sys.argv[1]
+
+    at = io.read(filename)
+    pos = at.get_positions().T / b2a
+    lat = at.get_cell().T / b2a
+    nat = at.get_global_number_of_atoms()
+    alpha = 2
 
 
-b2a = Bohr_Ang = 0.52917721067
+    opt = periodic_sqnm(nat, lat, alpha, 10, 2.0, 1e-2, 1e-4)
 
-filename = sys.argv[1]
+    for i in range(100):
+        epot, forces, deralat = _energyandforces(nat, pos, lat)
+        #print(epot, np.linalg.norm(forces), np.linalg.norm(deralat))
+        pos, lat = opt.optimizer_step(pos, lat, epot, forces, deralat)
+        print(epot, opt.lower_limit(), np.linalg.norm(forces), np.linalg.norm(deralat))
 
-at = io.read(filename)
-pos = at.get_positions().T / b2a
-lat = at.get_cell().T / b2a
-nat = at.get_global_number_of_atoms()
-alpha = 2
-
-
-opt = periodic_sqnm(nat, lat, alpha, 10, 2.0, 1e-2, 1e-4)
-
-for i in range(30):
-    epot, forces, deralat = energyandforces(nat, pos, lat)
-    print(epot, np.linalg.norm(forces), np.linalg.norm(deralat))
-    t1 = time.time()
-    pos, lat = opt.optimizer_step(pos, lat, epot, forces, deralat)
-    t2 = time.time()
-    print(t2 - t1)
-"""
-
-
-
+if __name__ == "__main__":
+    _tests()

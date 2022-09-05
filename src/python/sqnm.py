@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import numpy as np
 import historylist
 import time
@@ -89,9 +91,13 @@ class SQNM:
         self.prev_df_dx = df_dx
         return self.dir_of_descent
 
+    def lower_limit(self):
+        if self.nhist < 1:
+            print("At least one optimization step needs to be done before lower_limit can be called.")
+            return 0
+        return self.prev_f_of_x - np.dot(self.prev_df_dx, self.prev_df_dx) / self.h_eval[0]
 
-"""
-def test_fun(x):
+def _test_fun(x):
     n = len(x)
     a = np.zeros((n, n))
     for i in range(n):
@@ -101,28 +107,30 @@ def test_fun(x):
     return f, df
 
 
+def _tests():
+    n = 400
+    nhistx = 10
+    alpha = .005
+    x = np.zeros(n)
+    x[:] = 1.0
+    x[1] = 1.4
 
-n = 400
-nhistx = 10
-alpha = .005
-x = np.zeros(n)
-x[:] = 1.0
-x[1] = 1.4
-
-opt = SQNM(n, nhistx, alpha, 1e-4, 1e-2)
+    opt = SQNM(n, nhistx, alpha, 1e-4, 1e-2)
 
 
-for i in range(100):
-    f, df = test_fun(x)
-    print(i)
-    print('norm of x', np.linalg.norm(x))
-    print('f(x)', f)
-    print('norm of forces', np.linalg.norm(df))
-    print('')
-    t1 = time.time()
-    dd = opt.sqnm_step(x, f, df)
-    t2 = time.time()
-    print('time', t2 -t1)
-    # print('dd', dd)
-    x += dd
-"""
+    for i in range(100):
+        f, df = _test_fun(x)
+        #print(i)
+        #print('norm of x', np.linalg.norm(x))
+        #print('f(x)', f)
+        #print('norm of forces', np.linalg.norm(df))
+        #print('')
+        t1 = time.time()
+        dd = opt.sqnm_step(x, f, df)
+        t2 = time.time()
+        print(f, opt.lower_limit()) 
+        x += dd
+
+
+if __name__ == "__main__":
+    _tests()
