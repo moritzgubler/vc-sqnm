@@ -1,10 +1,7 @@
 #!/usr/bin/env python3
 import numpy as np
 import sqnm
-import bazant
-from ase import io
-import sys
-import time
+
 
 class periodic_sqnm:
 
@@ -47,10 +44,15 @@ class periodic_sqnm:
 
 
 def _energyandforces(nat, pos, alat):
+    import bazant
+    import random
     epot, forces, deralat = bazant.energyandforces_bazant(alat, pos, nat)
-    return epot + 1.3670604955980028, forces, deralat
+    return epot, forces, deralat
 
 def _tests():
+    from ase import io
+    import sys
+    import time
     b2a = Bohr_Ang = 0.52917721067
 
     filename = sys.argv[1]
@@ -64,11 +66,11 @@ def _tests():
 
     opt = periodic_sqnm(nat, lat, alpha, 10, 2.0, 1e-2, 1e-4)
 
-    for i in range(100):
+    for i in range(50):
         epot, forces, deralat = _energyandforces(nat, pos, lat)
-        #print(epot, np.linalg.norm(forces), np.linalg.norm(deralat))
+        print(epot, np.linalg.norm(forces), np.linalg.norm(deralat))
         pos, lat = opt.optimizer_step(pos, lat, epot, forces, deralat)
-        print(epot, opt.lower_limit(), np.linalg.norm(forces), np.linalg.norm(deralat))
+        #print(epot, np.linalg.norm(forces), np.linalg.norm(deralat))
 
 if __name__ == "__main__":
     _tests()
