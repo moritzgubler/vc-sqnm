@@ -8,6 +8,9 @@ class SQNM:
     def __init__(self, ndim, nhist_max, alpha, eps_supsp, alpha_min):
         self.ndim = ndim
         self.nhist_max = nhist_max
+        if ndim < nhist_max:
+            print('ndim > nhist_max. Seting nhist_max to ndim')
+            self.nhist_max = self.ndim
         self.eps_subsp = eps_supsp
         self.alpha_min = alpha_min
         self.xlist = historylist.HistoryList(self.ndim, self.nhist_max)
