@@ -35,3 +35,4 @@ src/cpp/build/
 build/*
 .vscode
 *.ftn_o
+__pycache__
