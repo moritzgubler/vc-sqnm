@@ -53,7 +53,8 @@ class SQNM:
 
             # remove noisy directions from subspace
             dim_subsp = sum(self.s_eval[:self.nhist] / self.s_eval[self.nhist - 1] > self.eps_subsp)
-
+            #dim_subsp = min(1, dim_subsp)
+            print('#', dim_subsp, self.alpha)
             self.s_eval[:dim_subsp] = self.s_eval[(self.nhist - dim_subsp):self.nhist]
             self.s_evec[:, :dim_subsp] = self.s_evec[:, (self.nhist - dim_subsp):self.nhist]
 

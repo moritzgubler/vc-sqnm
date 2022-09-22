@@ -14,8 +14,19 @@ class periodic_sqnm:
         self.lattice_transformer = np.diag(1 / np.linalg.norm(self.initial_lat, axis=0)) * self.lattice_weight * np.sqrt(nat)
         self.lattice_transformer_inv = np.linalg.inv(self.lattice_transformer)
         self.optimizer = sqnm.SQNM(self.ndim, nhist_max, initial_step_size, eps_subsp, alpha_min)
+        self.fluct = 0.0
 
     def optimizer_step(self, pos, alat, epot, forces, deralat):
+
+
+        fnoise = np.linalg.norm( np.sum(forces, axis=1) ) / np.sqrt(self.nat)
+        if self.fluct == 0.0:
+            self.fluct = fnoise
+        else:
+            self.fluct = .8 * self.fluct + .2 * fnoise
+
+        print('# fluct, ', self.fluct, fnoise)
+
         a_inv = np.linalg.inv(alat)
 
         q = ((self.initial_lat @ a_inv) @ pos).reshape(3 * self.nat)
@@ -49,6 +60,21 @@ def _energyandforces(nat, pos, alat):
     epot, forces, deralat = bazant.energyandforces_bazant(alat, pos, nat)
     return epot, forces, deralat
 
+def _rand_vec(nat, sigma):
+    import random
+    x = np.zeros((3, nat))
+    for i in range(nat):
+        for j in range(3):
+            x[j, i] = random.gauss(0.0, sigma)
+    return x
+
+def _cleanup_forces(forces):
+    sums = np.sum(forces, axis=1)
+    forces[0, :] = forces[0, :] - sums[0] / np.shape(forces)[1]
+    forces[1, :] = forces[1, :] - sums[1] / np.shape(forces)[1]
+    forces[2, :] = forces[2, :] - sums[2] / np.shape(forces)[1]
+    return forces
+
 def _tests():
     from ase import io
     import sys
@@ -62,15 +88,29 @@ def _tests():
     lat = at.get_cell().T / b2a
     nat = at.get_global_number_of_atoms()
     alpha = 2
+    lattice_weight = 2.0
 
 
-    opt = periodic_sqnm(nat, lat, alpha, 10, 2.0, 1e-2, 1e-4)
+    opt_clean = periodic_sqnm(nat, lat, alpha, 10, lattice_weight, 1e-2, 1e-3)
+    opt_noise = periodic_sqnm(nat, lat, alpha, 10, lattice_weight, 1e-2, 1e-3)
+    sigma = 0.0001
 
-    for i in range(50):
+    posnoise = pos.copy()
+    latnoise = lat.copy()
+
+
+    for i in range(100):
         epot, forces, deralat = _energyandforces(nat, pos, lat)
-        print(epot, np.linalg.norm(forces), np.linalg.norm(deralat))
-        pos, lat = opt.optimizer_step(pos, lat, epot, forces, deralat)
-        #print(epot, np.linalg.norm(forces), np.linalg.norm(deralat))
+        pos, lat = opt_clean.optimizer_step(pos, lat, epot, forces, deralat)
+
+        epotn, forcesn, deralatn = _energyandforces(nat, posnoise, latnoise)
+        
+        forcesn = forcesn + _rand_vec(nat, sigma)
+        deralatn = deralatn + _rand_vec(3, sigma)
+        #forcesn = _cleanup_forces(forcesn)
+        posnoise, latnoise = opt_noise.optimizer_step(posnoise, latnoise, epotn, forcesn, deralatn)
+        print(epot, max(np.max(np.linalg.norm(forces, axis=0)), np.linalg.norm(deralat)),
+            epotn, max( np.max(np.linalg.norm(forcesn, axis=0)), np.linalg.norm(deralatn) ))
 
 if __name__ == "__main__":
     _tests()
