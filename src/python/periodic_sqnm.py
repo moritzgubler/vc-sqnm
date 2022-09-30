@@ -15,17 +15,27 @@ class periodic_sqnm:
         self.lattice_transformer_inv = np.linalg.inv(self.lattice_transformer)
         self.optimizer = sqnm.SQNM(self.ndim, nhist_max, initial_step_size, eps_subsp, alpha_min)
         self.fluct = 0.0
+        self.l = []
+        self.sigsum = 0.0
+        self.nsig = 0
 
     def optimizer_step(self, pos, alat, epot, forces, deralat):
 
 
-        fnoise = np.linalg.norm( np.sum(forces, axis=1) ) / np.sqrt(self.nat)
+        #fnoise = np.linalg.norm( np.sum(forces, axis=1) ) / np.sqrt(self.nat * 3)
+        fnoise = np.abs(( np.sum(forces, axis=1)[0] )) / np.sqrt(self.nat)
+        self.l.append(fnoise)
+        self.sigsum += np.sum((np.sum(forces, axis=1)**2))
+        self.nsig += 3
+        print('estim', np.sqrt(self.sigsum / (self.nsig * self.nat)))
+        #fnoise = np.linalg.norm( np.sum(forces, axis=1) )**2 / 3
+        #print('asdf', np.linalg.norm(np.sum(forces, axis=1)) / np.sqrt(3))
         if self.fluct == 0.0:
             self.fluct = fnoise
         else:
             self.fluct = .8 * self.fluct + .2 * fnoise
 
-        print('# fluct, ', self.fluct, fnoise)
+        print('fluct, ', self.fluct, fnoise)
 
         a_inv = np.linalg.inv(alat)
 
@@ -89,19 +99,25 @@ def _tests():
     nat = at.get_global_number_of_atoms()
     alpha = 2
     lattice_weight = 2.0
+    nhist_max = 10
 
 
-    opt_clean = periodic_sqnm(nat, lat, alpha, 10, lattice_weight, 1e-2, 1e-3)
-    opt_noise = periodic_sqnm(nat, lat, alpha, 10, lattice_weight, 1e-2, 1e-3)
+    opt_clean = periodic_sqnm(nat, lat, alpha, nhist_max, lattice_weight, 1e-2, 1e-4)
+    opt_noise = periodic_sqnm(nat, lat, alpha, nhist_max, lattice_weight, 1e-2, 1e-4)
     sigma = 0.0001
 
     posnoise = pos.copy()
     latnoise = lat.copy()
 
+    f = open('estimates.txt', 'w')
+    # ground state energy of 64 Si bazant
+    e0 = -10.936483964784031
 
-    for i in range(100):
+    for i in range(6000):
         epot, forces, deralat = _energyandforces(nat, pos, lat)
-        pos, lat = opt_clean.optimizer_step(pos, lat, epot, forces, deralat)
+        #pos, lat = opt_clean.optimizer_step(pos, lat, epot, forces, deralat)
+
+        # f.write(str(epot - e0) + ' ' + str(abs(opt_clean.lower_limit())) + '\n')
 
         epotn, forcesn, deralatn = _energyandforces(nat, posnoise, latnoise)
         
@@ -111,6 +127,8 @@ def _tests():
         posnoise, latnoise = opt_noise.optimizer_step(posnoise, latnoise, epotn, forcesn, deralatn)
         print(epot, max(np.max(np.linalg.norm(forces, axis=0)), np.linalg.norm(deralat)),
             epotn, max( np.max(np.linalg.norm(forcesn, axis=0)), np.linalg.norm(deralatn) ))
+        
+    print(np.sum(opt_noise.l) / 700)
 
 if __name__ == "__main__":
     _tests()
