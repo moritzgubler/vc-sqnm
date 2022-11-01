@@ -92,6 +92,10 @@ program main
         call optimizer%optimizer_step(rxyz, alat, epot, fxyz, deralat)
     end do
 
+    print*, 'Current energy:', epot
+    print*, 'Estimated lower bound on energy of local minimum:', optimizer%get_lower_energy_bound()
+    print*, 'Estimated energy uncertainty:', epot - optimizer%get_lower_energy_bound()
+
 
   end program main
 

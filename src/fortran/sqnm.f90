@@ -56,6 +56,7 @@ module sqnm
     contains
     procedure :: initialize_sqnm
     procedure :: sqnm_step
+    procedure :: get_lower_bound
   end type sqnm_optimizer
 contains
 
@@ -188,7 +189,7 @@ subroutine sqnm_step(t, x, f_of_x, df_dx, dir_of_descent)
     end do
     t%dir_of_descent = t%dir_of_descent * t%alpha
 
-    ! apply preconditioning to remaining gradien (eq. 21)
+    ! apply preconditioning to remaining gradient (eq. 21)
     do i = 1, dim_subsp
       t%dir_of_descent = t%dir_of_descent & 
         + sum(df_dx * t%h_evec(:, i)) * t%h_evec(:, i) / t%h_eval(i)
@@ -203,5 +204,18 @@ subroutine sqnm_step(t, x, f_of_x, df_dx, dir_of_descent)
   t%prev_df_dx = df_dx
   
 end subroutine sqnm_step
+
+function get_lower_bound(t) result(lower_bound)
+  !! calculates an energy uncertainty (see eq. 20 of vc-sqnm paper)
+  class(sqnm_optimizer) :: t
+  real(c_double) :: lower_bound
+  if ( t%nhist == 0 ) then
+    lower_bound = 0.d0
+    print*, 'no estimate of a lower bound can be given at this point.'
+  else
+    lower_bound = t%prev_f - .5d0 * norm2(t%prev_df_dx)**2 / t%h_eval(1)
+  end if
+
+  end function get_lower_bound
 
 end module sqnm

@@ -40,6 +40,7 @@ private :: invertalat_lattice_per_opt
     contains
     procedure :: initialize_optimizer
     procedure :: optimizer_step
+    procedure :: get_lower_energy_bound
   end type optimizer_periodic
 
 contains
@@ -168,4 +169,13 @@ contains
     alatinv(3, 3) = (alat(1, 1)*alat(2, 2) - alat(1, 2)*alat(2, 1))*div
   end subroutine invertalat_lattice_per_opt
   
+  function get_lower_energy_bound(t) result(lower_bound)
+    !! calculates an energy uncertainty (see eq. 20 of vc-sqnm paper)
+    class(optimizer_periodic) :: t
+    real(c_double) :: lower_bound
+  
+    lower_bound = t%sqnm_opt%get_lower_bound()
+  
+  end function get_lower_energy_bound
+
 end module periodic_optimizer
