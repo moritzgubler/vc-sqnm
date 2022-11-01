@@ -15,8 +15,17 @@ class free_sqnm:
             print("Number of subspace dimensions will be reduced")
             nhist_max = self.ndim
         self.optimizer = sqnm.SQNM(self.ndim, nhist_max, initial_step_size, eps_subsp, alpha_min)
+        self.fluct = 0.0
 
     def optimizer_step(self, pos, epot, forces):
+        # check for noise in forces using eq. 23 of vc-sqnm paper
+        fnoise = np.linalg.norm(np.sum(forces, axis=1)) / np.sqrt(3 * self.nat)
+        if self.fluct == 0.0:
+            self.fluct = fnoise
+        else:
+            self.fluct = .8 * self.fluct + .2 * fnoise
+        if self.fluct > 0.2 * np.max( np.abs(forces) ):
+            print("""Warning: noise in forces is larger than 0.2 times the largest force component. Convergence is not guaranteed.""", file=sys.stderr)
         pos = pos.reshape(3 * self.nat)
         pos = pos + self.optimizer.sqnm_step(pos, epot, -forces.reshape(3 * self.nat))
         pos = pos.reshape((3, self.nat))
