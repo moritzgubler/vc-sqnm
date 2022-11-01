@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
+from ast import Lambda
 import numpy as np
 import sqnm
+import sys
 
 
 class periodic_sqnm:
@@ -15,27 +17,16 @@ class periodic_sqnm:
         self.lattice_transformer_inv = np.linalg.inv(self.lattice_transformer)
         self.optimizer = sqnm.SQNM(self.ndim, nhist_max, initial_step_size, eps_subsp, alpha_min)
         self.fluct = 0.0
-        self.l = []
-        self.sigsum = 0.0
-        self.nsig = 0
 
     def optimizer_step(self, pos, alat, epot, forces, deralat):
-
-
-        #fnoise = np.linalg.norm( np.sum(forces, axis=1) ) / np.sqrt(self.nat * 3)
-        fnoise = np.abs(( np.sum(forces, axis=1)[0] )) / np.sqrt(self.nat)
-        self.l.append(fnoise)
-        self.sigsum += np.sum((np.sum(forces, axis=1)**2))
-        self.nsig += 3
-        print('estim', np.sqrt(self.sigsum / (self.nsig * self.nat)))
-        #fnoise = np.linalg.norm( np.sum(forces, axis=1) )**2 / 3
-        #print('asdf', np.linalg.norm(np.sum(forces, axis=1)) / np.sqrt(3))
+        # check for noise in forces using eq. 23 of vc-sqnm paper
+        fnoise = np.linalg.norm(np.sum(forces, axis=1)) / np.sqrt(3 * self.nat)
         if self.fluct == 0.0:
             self.fluct = fnoise
         else:
             self.fluct = .8 * self.fluct + .2 * fnoise
-
-        print('fluct, ', self.fluct, fnoise)
+        if self.fluct > 0.2 * np.max( np.abs(forces) ):
+            print("""Warning: noise in forces is larger than 0.2 times the largest force component. Convergence is not guaranteed.""", file=sys.stderr)
 
         a_inv = np.linalg.inv(alat)
 
@@ -78,18 +69,11 @@ def _rand_vec(nat, sigma):
             x[j, i] = random.gauss(0.0, sigma)
     return x
 
-def _cleanup_forces(forces):
-    sums = np.sum(forces, axis=1)
-    forces[0, :] = forces[0, :] - sums[0] / np.shape(forces)[1]
-    forces[1, :] = forces[1, :] - sums[1] / np.shape(forces)[1]
-    forces[2, :] = forces[2, :] - sums[2] / np.shape(forces)[1]
-    return forces
-
 def _tests():
     from ase import io
     import sys
     import time
-    b2a = Bohr_Ang = 0.52917721067
+    b2a = 0.52917721067
 
     filename = sys.argv[1]
 
@@ -97,38 +81,26 @@ def _tests():
     pos = at.get_positions().T / b2a
     lat = at.get_cell().T / b2a
     nat = at.get_global_number_of_atoms()
-    alpha = 2
     lattice_weight = 2.0
     nhist_max = 10
 
+    # calculate optimal stepsize
+    beta = 0.1
+    e0, f0, d0 = _energyandforces(nat, pos, lat)
+    p1 = pos + beta * f0
+    e1, f1, d0 = _energyandforces(nat, p1, lat)
+    gtg = np.linalg.norm(f0)**2    
+    lmax = ( 2* (e1 - e0 + beta * gtg) / ( gtg * beta**2 ))
+    lmax1 = np.linalg.norm(f1 - f0) / (beta * np.linalg.norm(f0))
+    alpha = 1 / max(lmax, lmax1)
+    print('initial step size', alpha)
 
-    opt_clean = periodic_sqnm(nat, lat, alpha, nhist_max, lattice_weight, 1e-2, 1e-4)
-    opt_noise = periodic_sqnm(nat, lat, alpha, nhist_max, lattice_weight, 1e-2, 1e-4)
-    sigma = 0.0001
+    opt_clean = periodic_sqnm(nat, lat, alpha, nhist_max, lattice_weight, 1e-2, 1e-3)
 
-    posnoise = pos.copy()
-    latnoise = lat.copy()
-
-    f = open('estimates.txt', 'w')
-    # ground state energy of 64 Si bazant
-    e0 = -10.936483964784031
-
-    for i in range(6000):
+    for i in range(50):
         epot, forces, deralat = _energyandforces(nat, pos, lat)
-        #pos, lat = opt_clean.optimizer_step(pos, lat, epot, forces, deralat)
-
-        # f.write(str(epot - e0) + ' ' + str(abs(opt_clean.lower_limit())) + '\n')
-
-        epotn, forcesn, deralatn = _energyandforces(nat, posnoise, latnoise)
-        
-        forcesn = forcesn + _rand_vec(nat, sigma)
-        deralatn = deralatn + _rand_vec(3, sigma)
-        #forcesn = _cleanup_forces(forcesn)
-        posnoise, latnoise = opt_noise.optimizer_step(posnoise, latnoise, epotn, forcesn, deralatn)
-        print(epot, max(np.max(np.linalg.norm(forces, axis=0)), np.linalg.norm(deralat)),
-            epotn, max( np.max(np.linalg.norm(forcesn, axis=0)), np.linalg.norm(deralatn) ))
-        
-    print(np.sum(opt_noise.l) / 700)
+        pos, lat = opt_clean.optimizer_step(pos, lat, epot, forces, deralat)
+        print('Epot: %12.10f, Force and lattice derivative norm: %.2E' % (epot, max(np.max(np.linalg.norm(forces, axis=0)), np.linalg.norm(deralat))) )
 
 if __name__ == "__main__":
     _tests()
