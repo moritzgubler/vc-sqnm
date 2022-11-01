@@ -2,7 +2,7 @@ FC := gfortran
 
 libs:= -llapack -lblas
 
-ftn_flags := -g -Wall -fcheck=all -Wall
+ftn_flags := -g
 
 program := sqnm_test.exe
 
