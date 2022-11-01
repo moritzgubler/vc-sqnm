@@ -199,6 +199,20 @@ namespace sqnm_space
       return this->dir_of_descent;
     }
 
+    /**
+     * @brief Estimates a lower bound of the energy of the local minimum
+     * 
+     * @return double Lower bound estimate
+     */
+    double lower_bound()
+    {
+      if (this->nhist == 0) {
+        std::cout << "No lower bound estimate can be given yet.";
+        return 0.0;
+      }
+      return this->prev_f - 0.5 * this->prev_df_dx.dot(this->prev_df_dx) / this->h_eval(0);
+    }
+
     private:
     double calc_gainratio(double &f){
       //cout << "de " << f - prev_f << endl;

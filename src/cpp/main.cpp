@@ -83,6 +83,10 @@ int main(int argc, char **argv) {
     // call this step function for fixed cell optimization
     //test.step(r, epot, f);
   }
-  
+
+  std::cout << "Current energy: " << epot<< "\n";
+  std::cout << "Estimated lower bound of ground state energy: " << test.lower_bound()<< "\n";
+  std::cout << "Energy uncertainty: " << epot - test.lower_bound()<< "\n";
+
   return 0;
 }

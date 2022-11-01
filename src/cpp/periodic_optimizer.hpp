@@ -45,7 +45,7 @@ namespace PES_optimizer{
     }
 
     /**
-     * @brief Construct a new periodic optimizer::periodic optimizer object for fixed cell optimization with default parameters.
+     * @brief Construct a new periodic optimizer::periodic optimizer object for free or fixed cell optimization with default parameters.
      * 
      * @param nat number of atoms
      */
@@ -58,7 +58,7 @@ namespace PES_optimizer{
     }
 
     /**
-     * @brief Construct a new periodic optimizer::periodic optimizer object for fixed cell optimization with custom parameters.
+     * @brief Construct a new periodic optimizer::periodic optimizer object for free or fixed cell optimization with custom parameters.
      * 
      * @param nat number of atoms
      * @param initial_step_size initial step size. default is 1.0. For systems with hard bonds (e.g. C-C) use a value between and 1.0 and
@@ -189,6 +189,16 @@ namespace PES_optimizer{
       lat_a = alat.col(0);
       lat_b = alat.col(1);
       lat_c = alat.col(2);
+    }
+
+    /**
+     * @brief Estimates a lower bound of the energy of the local minimum
+     * 
+     * @return double Lower bound estimate
+     */
+    double lower_bound()
+    {
+      return this->opt->lower_bound();
     }
 
     private:
