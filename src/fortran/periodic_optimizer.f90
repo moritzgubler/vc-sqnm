@@ -36,6 +36,7 @@ private :: invertalat_lattice_per_opt
     integer(c_int) :: ndim
     real(c_double) :: initial_step_size
     real(c_double) :: w
+    real(c_double) :: f_sdt_deviation
     contains
     procedure :: initialize_optimizer
     procedure :: optimizer_step
@@ -73,6 +74,7 @@ contains
     t%initial_lattice = init_lat
     t%initial_step_size = initial_step_size
     t%w = lattice_weigth
+    t%f_sdt_deviation = 0.d0
 
     call invertalat_lattice_per_opt(t%initial_lattice, t%initial_lattice_inv)
     t%lattice_transformer = 0.d0
@@ -109,6 +111,14 @@ contains
     real(c_double) :: q_and_lat(3, t%nat + 3)
     real(c_double) :: dq_and_dlat(3, t%nat + 3)
     real(c_double) :: dd(3, t%nat + 3)
+    real(c_double) :: fnoise
+
+    fnoise = norm2(sum(f, dim=2)) / sqrt(3.d0 * t%nat)
+    if ( t%f_sdt_deviation == 0.d0 ) then
+      t%f_sdt_deviation = fnoise
+    else
+      t%f_sdt_deviation = .8d0 * t%f_sdt_deviation + .2d0 * fnoise
+    end if
 
     call invertalat_lattice_per_opt(alat, a_inv)
 
