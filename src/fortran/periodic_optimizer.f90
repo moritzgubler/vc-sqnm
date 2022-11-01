@@ -120,6 +120,9 @@ contains
     else
       t%f_sdt_deviation = .8d0 * t%f_sdt_deviation + .2d0 * fnoise
     end if
+    if ( t%f_sdt_deviation > 0.2 * maxval(abs(f)) ) then
+      print*, "Noise in force is larger than 0.2 times the larges force component. Convergence cannot be guaranteed."
+    end if
 
     call invertalat_lattice_per_opt(alat, a_inv)
 
