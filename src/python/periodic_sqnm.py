@@ -51,8 +51,8 @@ class periodic_sqnm:
 
         return pos, alat
 
-    def lower_limit(self):
-        return self.optimizer.lower_limit()
+    def lower_bound(self):
+        return self.optimizer.lower_bound()
 
 
 def _energyandforces(nat, pos, alat):
@@ -95,12 +95,14 @@ def _tests():
     alpha = 1 / max(lmax, lmax1)
     print('initial step size', alpha)
 
-    opt_clean = periodic_sqnm(nat, lat, alpha, nhist_max, lattice_weight, 1e-2, 1e-3)
+    opt = periodic_sqnm(nat, lat, alpha, nhist_max, lattice_weight, 1e-2, 1e-3)
 
-    for i in range(50):
+    for i in range(30):
         epot, forces, deralat = _energyandforces(nat, pos, lat)
-        pos, lat = opt_clean.optimizer_step(pos, lat, epot, forces, deralat)
+        pos, lat = opt.optimizer_step(pos, lat, epot, forces, deralat)
         print('Epot: %12.10f, Force and lattice derivative norm: %.2E' % (epot, max(np.max(np.linalg.norm(forces, axis=0)), np.linalg.norm(deralat))) )
-
+    print('The current energy is: ', epot)
+    print('The estimated lower bound of the ground state is:', opt.lower_bound())
+    print('The estimated energy error is:', epot - opt.lower_bound())
 if __name__ == "__main__":
     _tests()

@@ -31,8 +31,8 @@ class free_sqnm:
         pos = pos.reshape((3, self.nat))
         return pos
 
-    def lower_limit(self):
-        return self.optimizer.lower_limit()
+    def lower_bound(self):
+        return self.optimizer.lower_bound()
 
 
 def _energyandforces(nat, pos, alat):
@@ -58,10 +58,14 @@ def _tests():
 
     opt = free_sqnm(nat, alpha, 10, 1e-2, 1e-4)
 
-    for i in range(50):
+    for i in range(30):
         epot, forces, deralat = _energyandforces(nat, pos, lat)
         print(epot, np.linalg.norm(forces), np.linalg.norm(deralat))
         pos = opt.optimizer_step(pos, epot, forces)
+
+    print('The current energy is: ', epot)
+    print('The estimated lower bound of the ground state is:', opt.lower_bound())
+    print('The estimated energy error is:', epot - opt.lower_bound())
 
 if __name__ == "__main__":
     _tests()
