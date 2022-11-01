@@ -29,6 +29,7 @@ namespace PES_optimizer{
     double initial_step_size = 1;
     int n_hist_max = 10;
     double w = 2.0;
+    double f_std_deviation = 0.0;
 
     public:
 
@@ -130,6 +131,7 @@ namespace PES_optimizer{
         std::cout << "The fixed cell step function was called even though the object was created for vc-relaxation. returning" << "\n";
         return;
       }
+      check_forces(f);
       Eigen::VectorXd pos_all = Eigen::Map<Eigen::VectorXd>(r.data(), 3*nat);
       Eigen::VectorXd force_all = - Eigen::Map<Eigen::VectorXd>(f.data(), 3*nat);
       pos_all += opt->step(pos_all, energy, force_all);
@@ -156,6 +158,7 @@ namespace PES_optimizer{
         std::cout << "The vc step function was called even though the object was created for fixed cell relaxation. returning" << "\n";
         return;
       }
+      check_forces(f);
       Eigen::Matrix3d alat;
       Eigen::MatrixXd alat_tilde;
       alat.col(0) = lat_a;
@@ -189,6 +192,20 @@ namespace PES_optimizer{
       lat_a = alat.col(0);
       lat_b = alat.col(1);
       lat_c = alat.col(2);
+    }
+
+    void check_forces(Eigen::MatrixXd forces)
+    {
+      double fnoise = forces.rowwise().sum().norm() / sqrt(3 * this->nat);
+      if (this->f_std_deviation == 0)
+      {
+        this->f_std_deviation = fnoise;
+      } else {
+        this->f_std_deviation = .8 * this->f_std_deviation + .2 * fnoise;
+      }
+      if (this->f_std_deviation > 0.2 * forces.cwiseAbs().maxCoeff()) {
+        std::cerr << "Noise in force is larger than 0.2 times the larges force component. Convergence cannot be guaranteed.";
+      }
     }
 
     /**
