@@ -84,6 +84,14 @@ namespace sqnm_space
      * @return VectorXd displacent that can be added to x in order to get new improved coordinates.
      */
     Eigen::VectorXd step(Eigen::VectorXd &x, double &f_of_x, Eigen::VectorXd &df_dx) {
+
+      // check if forces are zero. If so zero is returned because a local minima has already been found.
+      if (df_dx.norm() <= 10.0e-13)
+      {
+        this->dir_of_descent.setZero();
+        return this->dir_of_descent;
+      }
+
       nhist = xlist->add(x);
       flist->add(df_dx);
       if (nhist == 0) { // initial and first step
