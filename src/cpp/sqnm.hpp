@@ -85,7 +85,7 @@ namespace sqnm_space
      */
     Eigen::VectorXd step(Eigen::VectorXd &x, double &f_of_x, Eigen::VectorXd &df_dx) {
 
-      // check if forces are zero. If so zero is returned because a local minima has already been found.
+      // check if forces are zero. If so zero is returned because a local minimum has already been found.
       if (df_dx.norm() <= 10.0e-13)
       {
         this->dir_of_descent.setZero();
