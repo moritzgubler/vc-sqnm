@@ -165,7 +165,6 @@ namespace PES_optimizer{
       alat.col(1) = lat_b;
       alat.col(2) = lat_c;
 
-      //cout << "transform atom coordinates" << endl;
       //  calculate transformed coordinates
       Eigen::MatrixXd q(3, nat);
       Eigen::MatrixXd dq(3, nat);
@@ -175,16 +174,12 @@ namespace PES_optimizer{
       //cout << "transform lattice vectors" << endl;
       // transform lattice vectors
       alat_tilde = alat * lattice_transformer;
-      //cout << calc_lattice_derivatices(stress, alat).array() / da.array() << endl;
       Eigen::MatrixXd dalat = calc_lattice_derivatices(stress, alat) * lattice_transformer_inv;
       Eigen::VectorXd qall = combine_matrices(q, alat_tilde);
       Eigen::VectorXd dqall = combine_matrices(dq, dalat);
       
-      // 
       //cout << "update coordinates" << endl;
       qall += this->opt->step(qall, energy, dqall);
-      //cout << "update done" << endl;
-      //cout << qall(1) << endl;
 
       split_matrices(q, alat_tilde, qall);
       alat = alat_tilde * lattice_transformer_inv;

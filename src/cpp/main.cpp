@@ -52,18 +52,30 @@ void read_ascii(std::string &fname, int &nat, Eigen::MatrixXd &r, Eigen::Vector3
   ascii_stream.close();
 }
 
+/*
+ * This program creates an optimizer object and does 30 steps of a geometry optimization.
+ * Detailed documentation is in the periodic_optimizer.hpp file. 
+ * To integrate the optimizer in your code you simply need to include the historylist.hpp, sqnm.hpp and the
+ * periodic_optimizer.hpp file.
+*/
 int main(int argc, char **argv) {
 
+   // number of atoms
   int nat = 8;
+  // filename of the ascii file that contains input coordinates. use test/test.ascii for example.
   std::string fname = argv[1];
-  //cout << fname << endl;
-  //string fname = "../../test/test.ascii";
+  // positions of atoms
   Eigen::MatrixXd r(3, nat);
+  // forces
   Eigen::MatrixXd f(3, nat);
+  // lattice vectors
   Eigen::Vector3d lat_a, lat_b, lat_c;
+  // stress tensor
   Eigen::Matrix3d stress;
+  // potential energy
   double epot;
 
+  // read the input coordinates.
   read_ascii(fname, nat, r, lat_a, lat_b, lat_c);
   
 
@@ -73,18 +85,27 @@ int main(int argc, char **argv) {
   // call this constructor for fixed cell optimization:
   //periodic_optimizer test(nat, 2.0, 10, 1.e-2, 1.e-4);
 
+  // do 30 geometry optimization iterations.
   for (int i = 0; i < 30; i++)
   {
+    // calculate energy, forces and stress tensor
     ff_wrapper(nat, r, lat_a, lat_b, lat_c, epot, f, stress);
     std::cout << i << " energy " << epot << " forcenorm " << f.norm() << "\n";
 
-    // call this step function for variable cell shape optimization
+    /* call this step function for variable cell shape optimization
+     * the step function calculates a new geometry that is closer to the local minima.
+     * your job is to calculate enery and forces of the new guess of the step function and provide it 
+     * later to the step function.
+    */
     test.step(r, epot, f, lat_a, lat_b, lat_c, stress);
     // call this step function for fixed cell optimization
     //test.step(r, epot, f);
   }
 
   std::cout << "Current energy: " << epot<< "\n";
+  // The SQNM method can estimate a lower bound of the ground state energy.
+  // Here it is shown how you can access this estimate. The estimate is only accurate when 
+  // the geometry optimization is reasonably well converged.
   std::cout << "Estimated lower bound of ground state energy: " << test.lower_bound()<< "\n";
   std::cout << "Energy uncertainty: " << epot - test.lower_bound()<< "\n";
 
