@@ -27,6 +27,7 @@ namespace sqnm_space
     Eigen::VectorXd dir_of_descent;
     double prev_f;
     Eigen::VectorXd prev_df_dx;
+    Eigen::VectorXd expected_positions;
     Eigen::MatrixXd h_subsp;
     Eigen::MatrixXd h_evec_subsp;
     Eigen::MatrixXd h_evec;
@@ -88,30 +89,31 @@ namespace sqnm_space
       // check if forces are zero. If so zero is returned because a local minimum has already been found.
       if (df_dx.norm() <= 10.0e-13)
       {
-        this->dir_of_descent.setZero();
+        this->dir_of_descent.setZero(ndim);
         return this->dir_of_descent;
       }
 
       nhist = xlist->add(x);
       flist->add(df_dx);
       if (nhist == 0) { // initial and first step
-        //cout << "first iteration of sqnm" << endl;
         this->dir_of_descent = - alpha * df_dx;
-
-      } else {
+      } else 
+      {
+        // check if positions have been changed and print a warning if they were.
+        if ((x - expected_positions).norm() > 10e-9)
+        {
+          std::cerr << "SQNM was not called with positions that were expected. If this was not done on purpose, it is probably a bug.\n";
+          std::cerr << "Were atoms that left the simulation box put back into the cell? This is not allowed.\n";
+        }
+        
         double gainratio = calc_gainratio(f_of_x);
         adjust_stepsize(gainratio);
-        //cout << "gainratio, stepsize " << gainratio << " " << alpha << endl;
-        //cout << "gainratio " << gainratio << " "<< alpha << endl;
         Eigen::MatrixXd S = calc_ovrlp();
-        //cout << "S " << S << endl;
         esolve.compute(S);
         Eigen::VectorXd S_eval = esolve.eigenvalues();
         Eigen::MatrixXd S_evec = esolve.eigenvectors();
-        //std::cout << xlist->normalized_difflist(0,nhist-1) << "\n";
 
         // compute eq 8
-        //println("eq. 8");
         int dim_subsp = 0;
         for (int i = 0; i < S_eval.size(); i++){
           if (S_eval(i) / S_eval(nhist-1) > eps_subsp)
@@ -128,8 +130,6 @@ namespace sqnm_space
         
         Eigen::MatrixXd dr_subsp(ndim, dim_subsp);
         dr_subsp.setZero();
-        //cout << "dimsp " << dim_subsp << " nhist " << nhist << endl;
-        //println("start loop");
         for (int i = 0; i < dim_subsp; i++) {
           for (int ihist = 0; ihist < nhist; ihist++){
             dr_subsp.col(i) += S_evec(ihist, i) * xlist->normalized_difflist.col(ihist);
@@ -138,7 +138,6 @@ namespace sqnm_space
         }
 
         // compute eq. 11
-        //println("eq. 11");
         Eigen::MatrixXd df_subsp(ndim, dim_subsp);
         df_subsp.setZero();
         for (int i = 0; i < dim_subsp; i++) {
@@ -148,14 +147,12 @@ namespace sqnm_space
           df_subsp.col(i) /= sqrt(S_eval(i));
         }
         // compute eq. 13
-        //println("eq. 13");
         h_subsp = .5 * (df_subsp.transpose() * dr_subsp + dr_subsp.transpose() * df_subsp);
         esolve.compute(h_subsp);
         h_eval = esolve.eigenvalues();
         h_evec_subsp = esolve.eigenvectors();
 
         // compute eq. 15
-        //println("eq. 15");
         h_evec.resize(ndim, dim_subsp);
         h_evec.setZero();
         for (int i = 0; i < dim_subsp; i++){
@@ -165,7 +162,6 @@ namespace sqnm_space
         }
 
         // compute residues (eq. 20)
-        //println("eq. 20");
         res.resize(dim_subsp);
         for (int j = 0; j < dim_subsp; j++){
           res_temp = - h_eval(j) * h_evec.col(j);
@@ -176,25 +172,18 @@ namespace sqnm_space
         }
 
         // modify eigenvalues (eq. 18)
-        //println("eq. 18");
         for (int idim = 0; idim < dim_subsp; idim++){
           h_eval(idim) = sqrt(pow(h_eval(idim), 2) + pow(res(idim), 2));
         }
         
         // decompose gradient (eq. 16)
-        //println("eq. 16");
         dir_of_descent = df_dx;
         for (int i = 0; i < dim_subsp; i++){
-          //cout << h_evec.col(0).size() <<  " " << df_dx.size() << " " << dir_of_descent.size() << endl;
-          //cout << h_evec << endl;
-          //cout << h_evec.col(i).dot(df_dx) << endl;
           dir_of_descent -= h_evec.col(i).dot(df_dx) * h_evec.col(i);
         }
         dir_of_descent *= alpha;
 
         // appy preconditioning to subspace gradient (eq. 21)
-        //println("eq. 21");
-        //dir_of_descent.setZero();
         for (int idim = 0; idim < dim_subsp; idim++)
         {
           dir_of_descent += (df_dx.dot(h_evec.col(idim)) / h_eval(idim)) * h_evec.col(idim);
@@ -202,6 +191,7 @@ namespace sqnm_space
         dir_of_descent *= -1.0;
         
       }
+      expected_positions = x + dir_of_descent;
       prev_f = f_of_x;
       prev_df_dx = df_dx;
       return this->dir_of_descent;
@@ -223,7 +213,6 @@ namespace sqnm_space
 
     private:
     double calc_gainratio(double &f){
-      //cout << "de " << f - prev_f << endl;
       double gr = (f - prev_f) / ( .5 * this->dir_of_descent.dot(prev_df_dx));
       return gr;
     }
