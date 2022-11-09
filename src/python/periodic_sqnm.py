@@ -17,6 +17,14 @@ class periodic_sqnm:
         self.lattice_transformer_inv = np.linalg.inv(self.lattice_transformer)
         self.optimizer = sqnm.SQNM(self.ndim, nhist_max, initial_step_size, eps_subsp, alpha_min)
         self.fluct = 0.0
+        self.a_inv = np.zeros((3,3))
+        self.q = np.zeros(3 * nat)
+        self.df_dq = np.zeros(3 * nat)
+        self.a_tilde = np.zeros((3,3))
+        self.df_da_tilde = np.zeros((3, 3))
+        self.q_and_lat = np.zeros( 3*nat + 9)
+        self.dq_and_dlat = np.zeros( 3*nat + 9)
+        self.dd = np.zeros( 3*nat + 9)
 
     def optimizer_step(self, pos, alat, epot, forces, deralat):
         # check for noise in forces using eq. 23 of vc-sqnm paper
@@ -28,26 +36,23 @@ class periodic_sqnm:
         if self.fluct > 0.2 * np.max( np.abs(forces) ):
             print("""Warning: noise in forces is larger than 0.2 times the largest force component. Convergence is not guaranteed.""", file=sys.stderr)
 
-        a_inv = np.linalg.inv(alat)
+        self.a_inv = np.linalg.inv(alat)
 
-        q = ((self.initial_lat @ a_inv) @ pos).reshape(3 * self.nat)
-        df_dq = (- (alat @ self.initial_lat_inverse) @ forces).reshape(3 * self.nat)
+        self.q = ((self.initial_lat @ self.a_inv) @ pos).reshape(3 * self.nat)
+        self.df_dq = (- (alat @ self.initial_lat_inverse) @ forces).reshape(3 * self.nat)
 
-        a_tilde = (alat @ self.lattice_transformer).reshape(9)
-        df_da_tilde = (- deralat @ self.lattice_transformer).reshape(9)
+        self.a_tilde = (alat @ self.lattice_transformer).reshape(9)
+        self.df_da_tilde = (- deralat @ self.lattice_transformer).reshape(9)
 
-        q_and_lat = np.concatenate((q, a_tilde))
-        dq_and_dlat = np.concatenate((df_dq, df_da_tilde))
+        self.q_and_lat = np.concatenate((self.q, self.a_tilde))
+        self.dq_and_dlat = np.concatenate((self.df_dq, self.df_da_tilde))
 
-        dd = self.optimizer.sqnm_step(q_and_lat, epot, dq_and_dlat)
+        self.dd = self.optimizer.sqnm_step(self.q_and_lat, epot, self.dq_and_dlat)
 
-        q_and_lat = q_and_lat + dd
+        self.q_and_lat = self.q_and_lat + self.dd
 
-        q = q_and_lat[:(3 * self.nat)].reshape(3, self.nat)
-        a_tilde = q_and_lat[(3*self.nat):].reshape(3, 3)
-
-        alat = a_tilde @ self.lattice_transformer_inv
-        pos = (alat @ self.initial_lat_inverse) @ q
+        alat = (self.q_and_lat[(3*self.nat):].reshape(3, 3)) @ self.lattice_transformer_inv
+        pos = (alat @ self.initial_lat_inverse) @ (self.q_and_lat[:(3 * self.nat)].reshape(3, self.nat))
 
         return pos, alat
 
