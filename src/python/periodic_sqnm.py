@@ -1,13 +1,36 @@
 #!/usr/bin/env python3
-from ast import Lambda
 import numpy as np
 import sqnm
 import sys
 
 
 class periodic_sqnm:
+    """
+    Implementation of the vc-sqnm method. More informations about the algorithm can be found here: https://arxiv.org/abs/2206.07339
+    """
 
     def __init__(self, nat, init_lat, initial_step_size, nhist_max, lattice_weigth, alpha_min, eps_subsp):
+        """
+        Construct a periodic optimizer object that can be used for variable cell shape optimization.
+        Parameters
+        ----------
+        nat: int
+            Number of atoms
+        init_lat: 3*3 numpy matrix 
+            Matrix containing initial lattice vectors stored columnwise.
+        initial_step_size: double
+            initial step size. default is 1.0. For systems with hard bonds (e.g. C-C) use a value between and 1.0 and
+            * 2.5. If a system only contains weaker bonds a value up to 5.0 may speed up the convergence.
+        nhist_max: int
+            Maximal number of steps that will be stored in the history list. Use a value between 3 and 20. Must be <= than 3*nat + 9.
+        lattice_weight: double
+            weight / size of the supercell that is used to transform lattice derivatives. Use a value between 1 and 2. Default is 2.
+        alpha_min: double
+            Lower limit on the step size. 1.e-2 is the default.
+        eps_subsp: double 
+            Lower limit on linear dependencies of basis vectors in history list. Default 1.e-4.
+        """
+
         self.nat = nat
         self.ndim = 3 * nat + 9
         self.lattice_weight = lattice_weigth
@@ -27,6 +50,29 @@ class periodic_sqnm:
         self.dd = np.zeros( 3*nat + 9)
 
     def optimizer_step(self, pos, alat, epot, forces, deralat):
+        """
+        Calculates new atomic coordinates that are closer to the local minimum. Variable cell shape optimization.
+        This function should be used the following way:
+        1. calculate energies, forces and stress tensor at positions r and lattice vectors a, b, c.
+        2. call the step function to update positions r and lattice vectors.
+        3. repeat.
+        Parameters
+        ----------
+        pos: numpy matrix, dimension(3, nat)
+            Input: atomic coordinates, dimension(3, nat). 
+            Output: improved coordinates that are calculated based on forces from this and previous iterations.
+        alat: Numpy 3*3 matrix
+            Matrix containing lattice vectors stored columnwise.
+        epot: double
+            Potential energy of current geometry.
+        forces: numpy matrix, dimension(3, nat)
+            Forces of current geometry
+        deralat: numpy matrix, dimension(3, nat)
+            Derivative of energy with repect to lattice vectors. Is connected to the stress tensor by:
+            dE / dA = -det(A) * stress A^{-1}^T
+            See equation 9 of the vc-sqnm paper. https://arxiv.org/abs/2206.07339
+        """
+
         # check for noise in forces using eq. 23 of vc-sqnm paper
         fnoise = np.linalg.norm(np.sum(forces, axis=1)) / np.sqrt(3 * self.nat)
         if self.fluct == 0.0:
@@ -34,7 +80,8 @@ class periodic_sqnm:
         else:
             self.fluct = .8 * self.fluct + .2 * fnoise
         if self.fluct > 0.2 * np.max( np.abs(forces) ):
-            print("""Warning: noise in forces is larger than 0.2 times the largest force component. Convergence is not guaranteed.""", file=sys.stderr)
+            print("""Warning: noise in forces is larger than 0.2 times the largest force component. 
+            Convergence is not guaranteed.""", file=sys.stderr)
 
         self.a_inv = np.linalg.inv(alat)
 
@@ -57,8 +104,13 @@ class periodic_sqnm:
         return pos, alat
 
     def lower_bound(self):
+        """ Returns an estimate of a lower bound for the local minumum.
+        The estimate is only accurate when the optimization is converged.
+        """
+
         return self.optimizer.lower_bound()
 
+# the rest of this file can be used for testing only
 
 def _energyandforces(nat, pos, alat):
     import bazant
@@ -109,5 +161,7 @@ def _tests():
     print('The current energy is: ', epot)
     print('The estimated lower bound of the ground state is:', opt.lower_bound())
     print('The estimated energy error is:', epot - opt.lower_bound())
+
+
 if __name__ == "__main__":
     _tests()

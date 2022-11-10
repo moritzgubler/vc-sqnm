@@ -5,7 +5,10 @@ import historylist
 import time
 
 class SQNM:
-    """This class is an implementation of the stabilized quasi newton optimization method"""
+    """This class is an implementation of the stabilized quasi newton optimization method.
+    More informations about the algorithm can be found here: https://aip.scitation.org/doi/10.1063/1.4905665
+    """
+    
     def __init__(self, ndim, nhist_max, alpha, eps_supsp, alpha_min):
         """
         Parameters
@@ -140,6 +143,8 @@ class SQNM:
             print("At least one optimization step needs to be done before lower_limit can be called.")
             return 0
         return self.prev_f_of_x - .5 * np.dot(self.prev_df_dx, self.prev_df_dx) / self.h_eval[0]
+
+# the rest of this file can be used for testing only
 
 def _test_fun(x):
     n = len(x)

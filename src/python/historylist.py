@@ -1,6 +1,10 @@
 import numpy as np
 
 class HistoryList:
+    """Historylist that is used by the sqnm class.
+    More informations about the SQNM algorithm can be found here: https://aip.scitation.org/doi/10.1063/1.4905665
+    """
+
     def __init__(self, ndim, nhist_max):
         self.ndim = ndim
         self.nhist_max = nhist_max
@@ -12,6 +16,10 @@ class HistoryList:
 
 
     def add(self, vectorToAdd):
+        """
+        Add a vector to the history list.
+        """
+
         if self.icount < self.nhist_max:
             self.histList[:, self.icount] = vectorToAdd
             self.icount += 1
@@ -37,19 +45,10 @@ class HistoryList:
                 self.normalizedDiffList[:, -1] = self.diffList[:, -1] / np.linalg.norm(self.diffList[:, -1])
             return self.nhist_max
 
-    def print_me(self, n):
+    def _print_me(self, n):
         print('histlist')
         print(self.histList)
         print('difflist')
         print(self.diffList[:, :(n)])
         print('normalizeddifflist')
         print(self.normalizedDiffList[:, :(n)])
-
-
-#a = HistoryList(2, 5)
-#for i in range(1, 10):
-#    x = np.ones(2) * i**2
-#    n = a.add(x)
-#    a.print_me(n)
-#    print('length', n)
-#    print('')
