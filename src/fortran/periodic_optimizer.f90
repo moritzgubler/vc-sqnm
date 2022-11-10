@@ -27,6 +27,7 @@ module periodic_optimizer
 private :: invertalat_lattice_per_opt
 
   type optimizer_periodic
+  !! Implementation of the vc-sqnm method. More informations about the algorithm can be found here: https://arxiv.org/abs/2206.07339
     real(c_double) :: initial_lattice(3, 3)
     real(c_double) :: initial_lattice_inv(3, 3)
     real(c_double) :: lattice_transformer(3, 3)
@@ -90,8 +91,11 @@ contains
   end subroutine initialize_optimizer  
 
   subroutine optimizer_step(t, r, alat, epot, f, deralat)
-    !! This subroutine estimates the coordinates of the closest local minumum
-    !! based on the previous points that were visited in the geometry optimization.
+    !! Calculates new atomic coordinates that are closer to the local minimum. Variable cell shape optimization.
+    !! This function should be used the following way:
+    !! 1. calculate energies, forces and stress tensor at positions r and lattice vectors a, b, c.
+    !! 2. call the step function to update positions r and lattice vectors.
+    !! 3. repeat.
     class(optimizer_periodic) :: t
     real(c_double), intent(inout) :: r(3, t%nat)
     !! Positions of the atoms
@@ -174,6 +178,7 @@ contains
   
   function get_lower_energy_bound(t) result(lower_bound)
     !! calculates an energy uncertainty (see eq. 20 of vc-sqnm paper)
+    !! The estimate is only accurate when the optimization is converged.
     class(optimizer_periodic) :: t
     real(c_double) :: lower_bound
   

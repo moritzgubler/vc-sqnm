@@ -26,6 +26,8 @@ module sqnm
   implicit none
 
   type sqnm_optimizer
+    !! This class is an implementation of the stabilized quasi newton optimization method.
+    !! More informations about the algorithm can be found here: https://aip.scitation.org/doi/10.1063/1.4905665
     integer(c_int) :: nhistx
     integer(c_int) :: ndim
     real(c_double) :: eps_subsp = 1.d-4
@@ -49,6 +51,7 @@ module sqnm
     real(c_double), allocatable, dimension(:) :: res_temp
     real(c_double) :: gainratio
     integer :: nhist
+    real(c_double), allocatable, dimension(:) :: expected_positions
 
     INTEGER :: lwork
     REAL(8), DIMENSION(:), ALLOCATABLE:: work
@@ -63,10 +66,15 @@ contains
 subroutine initialize_sqnm(t, ndim, nhistx, alpha, alpha0, eps_subsp)
   class(sqnm_optimizer) :: t
   integer(c_int) :: ndim
+  !! dimension of the optimization problem
   integer(c_int) :: nhistx
+  !! maximal length of history list
   real(c_double) :: alpha
+  !! Initial step size. Should be approximately the inverse of the largest eigenvalue of the Hessian matrix.
   real(c_double) :: alpha0
+  !! Lowest step size that is allowed.
   real(c_double) :: eps_subsp
+  !! Lower limit on linear dependencies in history list.
   
   t%ndim = ndim
   t%nhistx = nhistx
@@ -86,6 +94,7 @@ subroutine initialize_sqnm(t, ndim, nhistx, alpha, alpha0, eps_subsp)
   allocate(t%res(nhistx))
   allocate(t%res_temp(ndim))
   allocate(t%dir_of_descent(ndim))
+  allocate(t%expected_positions(ndim))
 
   t%lwork = 100 * t%nhistx
   allocate(t%work(t%lwork))
@@ -93,11 +102,20 @@ subroutine initialize_sqnm(t, ndim, nhistx, alpha, alpha0, eps_subsp)
 end subroutine initialize_sqnm
 
 subroutine sqnm_step(t, x, f_of_x, df_dx, dir_of_descent)
+  !! Calculates a set of new coordinates based on the function value and derivatives provide on input.
+  !! The idea behind this function is, that the user evaluates the function at the new point this method suggested and
+  !! then calls this method again with the function value at the new point until convergence was reached.
+
   class(sqnm_optimizer) :: t
   real(c_double), intent(in) :: x(t%ndim)
+  !! Array containg position vector x.
   real(c_double), intent(in) :: f_of_x
+  !! Value of target function at point x.
   real(c_double), intent(in) :: df_dx(t%ndim)
+  !! derivative of function f with respect to x.
   real(c_double), intent(out) :: dir_of_descent(t%ndim)
+  !! Direction of descent x+dir_of_descent is the new point
+  !! of the function that should be evaluated by the user.
 
 
   integer :: dim_subsp
@@ -106,6 +124,13 @@ subroutine sqnm_step(t, x, f_of_x, df_dx, dir_of_descent)
   ! lapack variables
   INTEGER :: info
 
+  !! check if gradient is already sufficiently small and return if this is the case.
+  if ( maxval(abs( df_dx )) < 1.d-11 ) then
+    dir_of_descent = 0.d0
+    t%dir_of_descent = 0.d0
+    return
+  end if
+
   call t%x_list%add(x)
   call t%flist%add(df_dx)
   t%nhist = t%x_list%get_length()
@@ -113,6 +138,13 @@ subroutine sqnm_step(t, x, f_of_x, df_dx, dir_of_descent)
   if ( t%nhist == 0 ) then !! first step
     t%dir_of_descent = - t%alpha * df_dx
   else
+
+    ! check if positions have been changed and print a warning if they were.
+    if ( maxval(abs(x - t%expected_positions)) > 1.d-9 ) then
+      print*, "SQNM was not called with positions that were expected. If this was not done on purpose, it is probably a bug."
+      print*, "Were atoms that left the simulation box put back into the cell? This is not allowed."
+    end if
+
     ! calculate gainratio
     t%gainratio = (f_of_x - t%prev_f) / (.5d0 * dot_product(t%dir_of_descent, t%prev_df_dx))
     if (t%gainratio < 0.5d0 ) t%alpha = max(t%alpha0, t%alpha * 0.65d0)
@@ -200,6 +232,7 @@ subroutine sqnm_step(t, x, f_of_x, df_dx, dir_of_descent)
   end if
 
   dir_of_descent = t%dir_of_descent
+  t%expected_positions = x + t%dir_of_descent
   t%prev_f = f_of_x
   t%prev_df_dx = df_dx
   
@@ -207,6 +240,7 @@ end subroutine sqnm_step
 
 function get_lower_bound(t) result(lower_bound)
   !! calculates an energy uncertainty (see eq. 20 of vc-sqnm paper)
+  !! The estimate is only accurate when the optimization is converged.
   class(sqnm_optimizer) :: t
   real(c_double) :: lower_bound
   if ( t%nhist == 0 ) then
