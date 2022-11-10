@@ -23,6 +23,8 @@ module historylist
   use iso_c_binding
   implicit none
   type hist_list
+  !! Historylist that is used by the sqnm class.
+  !! More informations about the SQNM algorithm can be found here: https://aip.scitation.org/doi/10.1063/1.4905665
   integer(c_int) :: nhistx
   integer(c_int) :: ndim
   integer(c_int), private :: icount
@@ -40,9 +42,12 @@ module historylist
 contains
 
   subroutine init(t, ndim, nhistx)
+    !! initializes the historylist object.
     class(hist_list) :: t
     integer(c_int), intent(in) :: ndim
+    !! dimension of the optimization problem
     integer(c_int), intent(in) :: nhistx
+    !! maximal length of history list
 
     t%icount = 1
     t%ndim = ndim
@@ -52,8 +57,10 @@ contains
   end subroutine init
 
   subroutine add(t, x)
+    !! Add a vector to the history list.
     class(hist_list) :: t
     real(c_double), intent(in) :: x(t%ndim)
+    !! Vector to add.
     integer :: i
    
     if ( t%icount <= t%nhistx) then ! list not yet full
@@ -80,6 +87,7 @@ contains
   end subroutine add
 
   integer function get_length(t)
+  !! returns the length of the historylist.
     class(hist_list) :: t
     get_length = t%icount - 2
   end function get_length
