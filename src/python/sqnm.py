@@ -57,6 +57,7 @@ class SQNM:
         self.flist = historylist.HistoryList(self.ndim, self.nhist_max)
         self.alpha = alpha
         self.dir_of_descent = np.zeros(ndim)
+        self.expected_positions = np.zeros(ndim)
         self.prev_f_of_x = 0.0
         self.prev_df_dx = np.zeros(ndim)
         self.s_evec = np.zeros((nhist_max, nhist_max))
@@ -99,6 +100,12 @@ class SQNM:
         if self.nhist == 0:
             self.dir_of_descent = -self.alpha * df_dx
         else:
+
+            # check if positions have been modified
+            if np.max(np.abs(x - self.expected_positions)) > 10.0e-9:
+                print("SQNM was not called with positions that were expected. If this was not done on purpose, it is probably a bug.")
+                print("Were atoms that left the simulation box put back into the cell? This is not allowed.")
+
             # calculate and adjust gainratio
             self.gainratio = (f_of_x - self.prev_f_of_x) / ( .5 * np.dot(self.dir_of_descent, self.prev_df_dx) )
             if self.gainratio < .5:
@@ -151,6 +158,7 @@ class SQNM:
                 , self.h_evec[:, :dim_subsp], np.divide(1.0, self.h_eval[:dim_subsp]) )
 
             self.dir_of_descent = - self.dir_of_descent
+        self.expected_positions = x + self.dir_of_descent
         self.prev_f_of_x = f_of_x
         self.prev_df_dx = df_dx
         return self.dir_of_descent
