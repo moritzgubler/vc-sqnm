@@ -100,7 +100,7 @@ namespace sqnm_space
       } else 
       {
         // check if positions have been changed and print a warning if they were.
-        if ((x - expected_positions).norm() > 10e-9)
+        if ((x - expected_positions).norm() > 10e-8)
         {
           std::cerr << "SQNM was not called with positions that were expected. If this was not done on purpose, it is probably a bug.\n";
           std::cerr << "Were atoms that left the simulation box put back into the cell? This is not allowed.\n";
