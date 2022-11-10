@@ -101,7 +101,7 @@ namespace PES_optimizer{
      * @param lat_c third lattice vector
     * @param initial_step_size initial step size. default is 1.0. For systems with hard bonds (e.g. C-C) use a value between and 1.0 and
     * 2.5. If a system only contains weaker bonds a value up to 5.0 may speed up the convergence.
-    * @param nhist_max Maximal number of steps that will be stored in the history list. Use a value between 3 and 20. Must be <= than 3*nat.
+    * @param nhist_max Maximal number of steps that will be stored in the history list. Use a value between 3 and 20. Must be <= than 3*nat + 9.
     * @param lattice_weight weight / size of the supercell that is used to transform lattice derivatives. Use a value between 1 and 2. Default is 2.
     * @param alpha0 Lower limit on the step size. 1.e-2 is the default.
     * @param eps_subsp Lower limit on linear dependencies of basis vectors in history list. Default 1.e-4.

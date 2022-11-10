@@ -1,4 +1,26 @@
 #!/usr/bin/env python3
+
+# The variable cell shape optimization method is based on the following 
+# paper: https://arxiv.org/abs/2206.07339
+# More details about the SQNM optimization method are available here:
+# https://comphys.unibas.ch/publications/Schaefer2015.pdf
+# Author of this document: Moritz Gubler 
+
+# Copyright (C) 2022 Moritz Gubler
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
 import numpy as np
 import sqnm
 import sys
