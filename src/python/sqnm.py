@@ -5,7 +5,23 @@ import historylist
 import time
 
 class SQNM:
+    """This class is an implementation of the stabilized quasi newton optimization method"""
     def __init__(self, ndim, nhist_max, alpha, eps_supsp, alpha_min):
+        """
+        Parameters
+        ----------
+        ndim : int
+            Number of dimensions of the optimization problem
+        nhist_max : int
+            maximal length of history list
+        alpha: double
+            Initial step size. Should be approximately the inverse of the largest eigenvalue of the Hessian matrix.
+        eps_subsp: double
+            Lower limit on linear dependencies in history list.
+        alpha_min: double
+            Lowest step size that is allowed.
+        """
+
         self.ndim = ndim
         self.nhist_max = nhist_max
         if ndim < nhist_max:
@@ -31,6 +47,27 @@ class SQNM:
         self.nhist = 0
 
     def sqnm_step(self, x, f_of_x, df_dx):
+        """ Calculates a set of new coordinates based on the function value and derivatives provide on input.
+
+        The idea behind this function is, that the user evaluates the function at the new point this method suggested and
+        then calls this method again with the function value at the new point until convergence was reached.
+
+        Parameters
+        ----------
+        x: numpy array
+            Numpy array containg position vector x.
+        f_of_x: double
+            Value of target function at point x.
+        df_dx: numpy array
+            derivative of function f with respect to x.
+        """
+
+        # check if norm of gradient is already zero:
+        # and return zero if this is the case
+        if np.linalg.norm(df_dx) < 10e-13:
+            self.dir_of_descent = np.zeros(self.ndim)
+            return self.dir_of_descent
+
         self.nhist = self.xlist.add(x)
         self.flist.add(df_dx)
 
@@ -95,6 +132,10 @@ class SQNM:
         return self.dir_of_descent
 
     def lower_bound(self):
+        """ Returns an estimate of a lower bound for the local minumum.
+        The estimate is only accurate when the optimization is converged.
+        """
+
         if self.nhist < 1:
             print("At least one optimization step needs to be done before lower_limit can be called.")
             return 0
