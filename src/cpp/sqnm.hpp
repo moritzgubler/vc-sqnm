@@ -19,7 +19,7 @@ namespace sqnm_space
     private:
     int ndim;
     int nhistx;
-    double eps_subsp = 1.e-4;
+    double eps_subsp = 1.e-3;
     double alpha0 = 1.e-2;
     std::unique_ptr<hlist_space::HistoryList> xlist;
     std::unique_ptr<hlist_space::HistoryList> flist;
@@ -36,6 +36,7 @@ namespace sqnm_space
     Eigen::SelfAdjointEigenSolver<Eigen::MatrixXd> esolve;
     Eigen::VectorXd res_temp;
     int nhist = 0;
+    bool estimate_step_size = false;
 
     public:
     /**
@@ -43,12 +44,25 @@ namespace sqnm_space
      * 
      * @param ndim_ number of dimensions of target function
      * @param nhistx_ Maximal number of steps that will be stored in the history list. Use a value between 3 and 20. Must be <= than ndim_.
-     * @param alpha_ initial step size. default is 1.0. For systems with hard bonds (e.g. C-C) use a value between and 1.0 and
+     * @param alpha_ initial step size. default is 1.0. For systems with hard bonds (e.g. C-C) use a value between and 1.0 and 2.5
+     * Should be approximately the inverse of the largest eigenvalue of the Hessian matrix.
+     * If alpha is negative, the inial step size is estimated using the mechanism from section 6.4 of the
+     * vc-sqnm paper: https://arxiv.org/abs/2206.07339
+     * beta will then be equal to minus alpha. Good choices for beta are 0.1 in hartee / bohr^2 and
+     * 0.001 in eV / A^2
      */
     SQNM(int ndim_, int nhistx_, double alpha_) {
       ndim = ndim_;
       nhistx = nhistx_;
-      alpha = alpha_;
+      if (alpha_ <= 0)
+      {
+        this->estimate_step_size = true;
+        this->alpha = -alpha_;
+      } else
+      {
+        alpha = alpha_;
+      }
+
       xlist = std::make_unique<hlist_space::HistoryList>(ndim, nhistx);
       flist = std::make_unique<hlist_space::HistoryList>(ndim, nhistx);
     }
@@ -58,14 +72,26 @@ namespace sqnm_space
      * 
      * @param ndim_ number of dimensions of target function
      * @param nhistx_ Maximal number of steps that will be stored in the history list. Use a value between 3 and 20. Must be <= than ndim_.
-     * @param alpha_ initial step size. default is 1.0. For systems with hard bonds (e.g. C-C) use a value between and 1.0 and
+     * @param alpha_ initial step size. default is 1.0. For systems with hard bonds (e.g. C-C) use a value between and 1.0 and 2.5.
+     * Should be approximately the inverse of the largest eigenvalue of the Hessian matrix.
+     * If alpha is negative, the inial step size is estimated using the mechanism from section 6.4 of the
+     * vc-sqnm paper: https://arxiv.org/abs/2206.07339
+     * beta will then be equal to minus alpha. Good choices for beta are 0.1 in hartee / bohr^2 and
+     * 0.001 in eV / A^2
      * @param alpha0_  * @param alpha0 Lower limit on the step size. 1.e-2 is the default.
      * @param eps_subsp_ Lower limit on linear dependencies of basis vectors in history list. Default 1.e-4.
      */
     SQNM(int ndim_, int nhistx_, double alpha_, double alpha0_, double eps_subsp_) {
       ndim = ndim_;
       nhistx = nhistx_;
-      alpha = alpha_;
+      if (alpha_ <= 0)
+      {
+        this->estimate_step_size = true;
+        this->alpha = -alpha_;
+      } else
+      {
+        alpha = alpha_;
+      }
       xlist = std::make_unique<hlist_space::HistoryList>(ndim, nhistx);
       flist = std::make_unique<hlist_space::HistoryList>(ndim, nhistx);
       alpha0 = alpha0_;
@@ -105,9 +131,21 @@ namespace sqnm_space
           std::cerr << "SQNM was not called with positions that were expected. If this was not done on purpose, it is probably a bug.\n";
           std::cerr << "Were atoms that left the simulation box put back into the cell? This is not allowed.\n";
         }
-        
-        double gainratio = calc_gainratio(f_of_x);
-        adjust_stepsize(gainratio);
+
+        if (this->estimate_step_size)
+        {
+          double prev_df_squared = std::pow(prev_df_dx.norm(), 2);
+          double l1 = (f_of_x - prev_f + alpha * prev_df_squared) / (0.5 * alpha * alpha * prev_df_squared);
+          double l2 = (df_dx - prev_df_dx).norm() / (alpha * prev_df_dx.norm());
+          alpha = 1.0 / std::max(l1, l2);
+          std::cout << "Automatic initial step size guess: " << alpha << '\n';
+          this->estimate_step_size = false;
+        } else
+        {
+          double gainratio = calc_gainratio(f_of_x);
+          adjust_stepsize(gainratio);
+        }
+
         Eigen::MatrixXd S = calc_ovrlp();
         esolve.compute(S);
         Eigen::VectorXd S_eval = esolve.eigenvalues();

@@ -49,7 +49,7 @@ program main
     !! optimiyer object
     integer :: i
     !! iteration variable
-    real(8) :: alpha = 2.d0
+    real(8) :: alpha = -.1
     !! initial step size. default is 1.0. For systems with hard bonds (e.g. C-C) use a value between and 1.0 and
     !! 2.5. If a system only contains weaker bonds a value up to 5.0 may speed up the convergence.
     real(8) :: lattice_weigth = 2.d0
@@ -57,7 +57,7 @@ program main
     !! Default is 2.
     real(8) :: alpha0 = 1.d-2
     !! Lower limit on the step size. 1.e-2 is the default.
-    real(8) :: eps_subsp = 1.d-4
+    real(8) :: eps_subsp = 1.d-3
     !! Lower limit on linear dependencies of basis vectors in history list. Default 1.e-4.
     !! Increase this parameter if energy or forces contain noise.
     integer :: nhistx = 10
@@ -73,7 +73,11 @@ program main
     allocate(rxyz(3,nat), atomnames(nat), fxyz(3, nat))
     call read_periodic(trim(file_in), nat, rxyz, alat, atomnames, comment)
 
-
+    alpha = -.1
+    nhistx = 10
+    lattice_weigth = 2.d0
+    alpha0 = 1.d-2
+    eps_subsp = 1.d-3
     !! initialize the periodic optimizer object.
     call optimizer%initialize_optimizer(nat, alat, alpha, nhistx, lattice_weigth, alpha0, eps_subsp)
     
@@ -122,7 +126,7 @@ program main
     !! sting containing entire line
     integer :: i, io, ios
     real*8 :: alat_temp(2, 3)
-    real*8 :: Bohr_Ang = 0.52917721067
+    real*8 :: Bohr_Ang = 0.52917721067d0
     !! Bohr to angstrom conversion factor.
   
     open (newunit=io, file=trim(adjustl(filename)), iostat=ios, status="old")
@@ -148,7 +152,7 @@ program main
       if (ios /= 0) stop "error parsing lattice in moleculario"
       i = i + 1
     end do
-    alat = 0.1
+
     alat(1, 1) = alat_temp(1, 1)
     alat(1, 2) = alat_temp(1, 2)
     alat(2, 2) = alat_temp(1, 3)
@@ -249,7 +253,7 @@ program main
     character(len=len_words), dimension(:), allocatable :: words
     integer :: nwords, num_words
     real*8 :: xyzred(3, nat)
-    real*8 :: Bohr_Ang = 0.52917721067
+    real*8 :: Bohr_Ang = 0.52917721067d0
     integer :: comment_count
     nat_read = 0
     atom_site_count = 0
@@ -546,7 +550,7 @@ program main
     integer, parameter :: max_line_length = 250
     character(len=max_line_length) :: all_line
     integer :: io, ios, i, iat
-    real(real64) :: Bohr_Ang = 0.52917721067
+    real(real64) :: Bohr_Ang = 0.52917721067d0
     character(len=1) :: celltype
     logical :: isfirstcomment
     !! number of different atoms
@@ -699,7 +703,7 @@ program main
     character(len=max_line_length) :: all_line
     character(len=max_line_length) :: dat_line
     integer :: io, ios, i
-    real*8 :: Bohr_Ang = 0.52917721067
+    real*8 :: Bohr_Ang = 0.52917721067d0
     integer :: comment_count
   
     comment_count = 0
@@ -944,7 +948,7 @@ program main
     character(len=2), intent(out) :: atomnames(nat)
     !! String containing the chemical symbol of each atom.
   
-    real(real64) :: Bohr_Ang = 0.52917721067
+    real(real64) :: Bohr_Ang = 0.52917721067d0
     integer :: io, ios, i, iend
     character(len=200) :: aline
     integer :: ibrav
@@ -1074,7 +1078,7 @@ program main
     !! content of the comment line
     character(len=300) :: all_line
     integer :: io, ios, i
-    real(8) :: Bohr_Ang = 0.52917721067
+    real(8) :: Bohr_Ang = 0.52917721067d0
     real(8) :: conver
     integer :: ntypes
     character(len=2), allocatable, dimension(:) :: typenames
@@ -1219,7 +1223,7 @@ program main
     !! number of atoms
     real*8, intent(out), dimension(3,nat) :: rxyz
     !! positions of the atoms (bohr)
-    real*8 :: Bohr_Ang = 0.52917721067
+    real*8 :: Bohr_Ang = 0.52917721067d0
     !! atomic positions in a.u
     character(len=2), intent(out), dimension(nat) :: atomnames
     !! chemical name of the atoms
@@ -1275,7 +1279,7 @@ program main
     integer :: io, ios, i
     real*8, dimension(3, nat) :: rxyz_copy
     real*8, dimension(3, 3) :: alat_copy
-    real*8 :: Bohr_Ang = 0.52917721067
+    real*8 :: Bohr_Ang = 0.52917721067d0
   
     alat_copy = alat
     rxyz_copy = rxyz
@@ -1382,7 +1386,7 @@ program main
     real*8 :: length_a, length_b, length_c
     real*8 :: alpha, beta, gamma
     real*8 :: xyzred(3,nat)
-    real*8 :: Bohr_Ang = 0.52917721067
+    real*8 :: Bohr_Ang = 0.52917721067d0
     real*8 :: alat_convert(3,3)
   
     alat_convert = Bohr_Ang * alat
@@ -1461,7 +1465,7 @@ program main
   
     integer :: u, ityp, iat, ios, i, j
   
-    real(real64), parameter :: Bohr_Ang = 0.52917721067
+    real(real64), parameter :: Bohr_Ang = 0.52917721067d0
     real(real64) :: pos_ang(3,nat), lat_ang(3,3)
   
     pos_ang = rxyz * Bohr_Ang
@@ -1544,7 +1548,7 @@ program main
     character(len=80), intent(in) :: comment
     !! content that will be written to comment line
     integer :: io, ios, i
-    real*8 :: Bohr_Ang = 0.52917721067
+    real*8 :: Bohr_Ang = 0.52917721067d0
     real*8 :: alat_convert(3,3), xyz_convert(3,nat)
   
     alat_convert = alat * Bohr_Ang
@@ -1702,7 +1706,7 @@ program main
   
     ! private variables:
     integer :: io, ios, i
-    real(8) :: Bohr_Ang = 0.52917721067
+    real(8) :: Bohr_Ang = 0.52917721067d0
     real(8) :: p_out(3,nat), a_out(3,3)
     !! number of different atoms
     integer :: ntypes
@@ -1822,7 +1826,7 @@ program main
     character(len=80), intent(in) :: comment
     !! content that will be written to the comment line
     integer :: io, ios, i
-    real*8 :: Bohr_Ang = 0.52917721067
+    real*8 :: Bohr_Ang = 0.52917721067d0
     real*8 :: xyz_convert(3,nat)
   
     xyz_convert = Bohr_Ang * rxyz

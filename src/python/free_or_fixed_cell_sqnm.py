@@ -118,7 +118,10 @@ def _tests():
     pos = at.get_positions().T / b2a
     lat = at.get_cell().T / b2a
     nat = at.get_global_number_of_atoms()
-    alpha = 2
+    
+    # if alpha is negative, initial step size will be estimated using eq. 24 and 25 of the
+    # of the vc-sqnm paper: https://arxiv.org/abs/2206.07339
+    alpha = -.1
 
 
     opt = free_sqnm(nat, alpha, 10, 1e-2, 1e-4)

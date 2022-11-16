@@ -40,6 +40,10 @@ class SQNM:
             maximal length of history list
         alpha: double
             Initial step size. Should be approximately the inverse of the largest eigenvalue of the Hessian matrix.
+            If alpha is negative, the inial step size is estimated using the mechanism from section 6.4 of the 
+            vc-sqnm paper: https://arxiv.org/abs/2206.07339
+            beta will then be equal to minus alpha. Good choices for beta are 0.1 in hartee / bohr^2 and
+            0.001 in eV / A^2
         eps_subsp: double
             Lower limit on linear dependencies in history list.
         alpha_min: double
@@ -55,7 +59,15 @@ class SQNM:
         self.alpha_min = alpha_min
         self.xlist = historylist.HistoryList(self.ndim, self.nhist_max)
         self.flist = historylist.HistoryList(self.ndim, self.nhist_max)
-        self.alpha = alpha
+        
+        # when alpha is smaller than zero estimate initial step size.
+        self.estimate_step_size = False
+        if alpha <= 0:
+            self.estimate_step_size = True
+            self.alpha = - alpha
+        else:
+            self.alpha = alpha
+        
         self.dir_of_descent = np.zeros(ndim)
         self.expected_positions = np.zeros(ndim)
         self.prev_f_of_x = 0.0
@@ -106,12 +118,20 @@ class SQNM:
                 print("SQNM was not called with positions that were expected. If this was not done on purpose, it is probably a bug.")
                 print("Were atoms that left the simulation box put back into the cell? This is not allowed.")
 
-            # calculate and adjust gainratio
-            self.gainratio = (f_of_x - self.prev_f_of_x) / ( .5 * np.dot(self.dir_of_descent, self.prev_df_dx) )
-            if self.gainratio < .5:
-                self.alpha = max(self.alpha_min, self.alpha * .65)
-            if self.gainratio > 1.05:
-                self.alpha *= 1.05
+            if self.estimate_step_size:
+                l1 = (f_of_x - self.prev_f_of_x + self.alpha * np.linalg.norm(self.prev_df_dx)**2) / (0.5 * (self.alpha**2) * np.linalg.norm(self.prev_df_dx)**2)
+                l2 = np.linalg.norm(df_dx - self.prev_df_dx) / (self.alpha * np.linalg.norm(self.prev_df_dx))
+                self.alpha = min(1/ l1, 1/l2)
+                print("Automatic initial step size guess: ", self.alpha)
+                self.estimate_step_size = False
+            else:
+                # calculate and adjust gainratio
+                self.gainratio = (f_of_x - self.prev_f_of_x) / ( .5 * np.dot(self.dir_of_descent, self.prev_df_dx) )
+                if not self.estimate_step_size:
+                    if self.gainratio < .5:
+                        self.alpha = max(self.alpha_min, self.alpha * .65)
+                    if self.gainratio > 1.05:
+                        self.alpha *= 1.05
 
             # calculate overlap matrix of basis
             self.s_evec[:self.nhist, :self.nhist] = self.xlist.normalizedDiffList[:, :self.nhist].T \

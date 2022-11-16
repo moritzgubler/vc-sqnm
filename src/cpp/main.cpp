@@ -80,7 +80,7 @@ int main(int argc, char **argv) {
   
 
   // call this constructor for variable cell shape optimization
-  PES_optimizer::periodic_optimizer test(nat, lat_a, lat_b, lat_c, 2.0, 10, 2.0, 1.e-2, 1.e-4);
+  PES_optimizer::periodic_optimizer test(nat, lat_a, lat_b, lat_c, -.1, 10, 2.0, 1.e-2, 1.e-3);
 
   // call this constructor for fixed cell optimization:
   //periodic_optimizer test(nat, 2.0, 10, 1.e-2, 1.e-4);
