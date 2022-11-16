@@ -30,8 +30,8 @@ module sqnm
     !! More informations about the algorithm can be found here: https://aip.scitation.org/doi/10.1063/1.4905665
     integer(c_int) :: nhistx
     integer(c_int) :: ndim
-    real(c_double) :: eps_subsp = 1.d-4
-    real(c_double) :: alpha0 = 1.d-2
+    real(c_double) :: eps_subsp
+    real(c_double) :: alpha0
     type(hist_list) :: x_list
     type(hist_list) :: flist
     real(c_double) :: alpha
@@ -52,6 +52,7 @@ module sqnm
     real(c_double) :: gainratio
     integer :: nhist
     real(c_double), allocatable, dimension(:) :: expected_positions
+    logical :: estimate_step_size
 
     INTEGER :: lwork
     REAL(8), DIMENSION(:), ALLOCATABLE:: work
@@ -78,7 +79,14 @@ subroutine initialize_sqnm(t, ndim, nhistx, alpha, alpha0, eps_subsp)
   
   t%ndim = ndim
   t%nhistx = nhistx
-  t%alpha = alpha
+  t%estimate_step_size = .false.
+  if ( alpha <= 0.d0 ) then
+    t%estimate_step_size = .true.
+    t%alpha = -alpha
+  else
+    t%alpha = alpha
+  end if
+  
   t%alpha0 = alpha0
   t%eps_subsp = eps_subsp
   call t%x_list%init(ndim, nhistx)
@@ -117,6 +125,8 @@ subroutine sqnm_step(t, x, f_of_x, df_dx, dir_of_descent)
   !! Direction of descent x+dir_of_descent is the new point
   !! of the function that should be evaluated by the user.
 
+  real(c_double) :: l1, l2
+
 
   integer :: dim_subsp
   integer :: i, ihist, k, j
@@ -145,11 +155,18 @@ subroutine sqnm_step(t, x, f_of_x, df_dx, dir_of_descent)
       print*, "Were atoms that left the simulation box put back into the cell? This is not allowed."
     end if
 
-    ! calculate gainratio
-    t%gainratio = (f_of_x - t%prev_f) / (.5d0 * dot_product(t%dir_of_descent, t%prev_df_dx))
-    if (t%gainratio < 0.5d0 ) t%alpha = max(t%alpha0, t%alpha * 0.65d0)
-    if (t%gainratio > 1.05d0) t%alpha = t%alpha * 1.05d0
-
+    if ( t%estimate_step_size ) then
+      l1 = (f_of_x - t%prev_f + t%alpha * norm2(t%prev_df_dx)**2) / (.5d0 * (t%alpha**2) * (norm2(t%prev_df_dx)**2))
+      l2 = norm2(df_dx - t%prev_df_dx) / (t%alpha * norm2(t%prev_df_dx))
+      print*, l1, l2, 1/l1, 1/l2
+      t%alpha = 1 / max(l1, l2)
+      t%estimate_step_size = .false.
+    else
+      ! calculate gainratio
+      t%gainratio = (f_of_x - t%prev_f) / (.5d0 * dot_product(t%dir_of_descent, t%prev_df_dx))
+      if (t%gainratio < 0.5d0 ) t%alpha = max(t%alpha0, t%alpha * 0.65d0)
+      if (t%gainratio > 1.05d0) t%alpha = t%alpha * 1.05d0
+    end if
 
     ! calculate overlab matrix of basis
     t%s_evec(:t%nhist, :t%nhist) =  matmul(transpose(t%x_list%norm_diff_list(:, :t%nhist)) &
