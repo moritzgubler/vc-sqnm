@@ -158,8 +158,8 @@ subroutine sqnm_step(t, x, f_of_x, df_dx, dir_of_descent)
     if ( t%estimate_step_size ) then
       l1 = (f_of_x - t%prev_f + t%alpha * norm2(t%prev_df_dx)**2) / (.5d0 * (t%alpha**2) * (norm2(t%prev_df_dx)**2))
       l2 = norm2(df_dx - t%prev_df_dx) / (t%alpha * norm2(t%prev_df_dx))
-      print*, l1, l2, 1/l1, 1/l2
       t%alpha = 1 / max(l1, l2)
+      print'(a, g0.4)', 'Automatic initial step size guess: ', t%alpha
       t%estimate_step_size = .false.
     else
       ! calculate gainratio

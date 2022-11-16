@@ -121,9 +121,8 @@ class SQNM:
             if self.estimate_step_size:
                 l1 = (f_of_x - self.prev_f_of_x + self.alpha * np.linalg.norm(self.prev_df_dx)**2) / (0.5 * (self.alpha**2) * np.linalg.norm(self.prev_df_dx)**2)
                 l2 = np.linalg.norm(df_dx - self.prev_df_dx) / (self.alpha * np.linalg.norm(self.prev_df_dx))
-                print('l1, l2', l1, l2)
-                print('a1, a2', 1/l1, 1/l2)
                 self.alpha = min(1/ l1, 1/l2)
+                print("Automatic initial step size guess: ", self.alpha)
                 self.estimate_step_size = False
             else:
                 # calculate and adjust gainratio

@@ -138,7 +138,7 @@ namespace sqnm_space
           double l1 = (f_of_x - prev_f + alpha * prev_df_squared) / (0.5 * alpha * alpha * prev_df_squared);
           double l2 = (df_dx - prev_df_dx).norm() / (alpha * prev_df_dx.norm());
           alpha = 1.0 / std::max(l1, l2);
-          std::cout << 1/l1 << ' ' << 1/l2 << '\n';
+          std::cout << "Automatic initial step size guess: " << alpha << '\n';
           this->estimate_step_size = false;
         } else
         {
