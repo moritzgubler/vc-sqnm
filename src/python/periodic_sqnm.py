@@ -111,7 +111,7 @@ class periodic_sqnm:
         self.df_dq = (- (alat @ self.initial_lat_inverse) @ forces).reshape(3 * self.nat)
 
         self.a_tilde = (alat @ self.lattice_transformer).reshape(9)
-        self.df_da_tilde = (- deralat @ self.lattice_transformer).reshape(9)
+        self.df_da_tilde = (- deralat @ self.lattice_transformer_inv).reshape(9)
 
         self.q_and_lat = np.concatenate((self.q, self.a_tilde))
         self.dq_and_dlat = np.concatenate((self.df_dq, self.df_da_tilde))
@@ -163,15 +163,9 @@ def _tests():
     lattice_weight = 2.0
     nhist_max = 10
 
-    # calculate optimal stepsize
-    beta = 0.1
-    e0, f0, d0 = _energyandforces(nat, pos, lat)
-    p1 = pos + beta * f0
-    e1, f1, d0 = _energyandforces(nat, p1, lat)
-    gtg = np.linalg.norm(f0)**2    
-    lmax = ( 2* (e1 - e0 + beta * gtg) / ( gtg * beta**2 ))
-    lmax1 = np.linalg.norm(f1 - f0) / (beta * np.linalg.norm(f0))
-    alpha = 1 / max(lmax, lmax1)
+    # if alpha is negative, initial step size will be estimated using eq. 24 and 25 of the
+    # of the vc-sqnm paper: https://arxiv.org/abs/2206.07339
+    alpha = -0.1
     print('initial step size', alpha)
 
     opt = periodic_sqnm(nat, lat, alpha, nhist_max, lattice_weight, 1e-2, 1e-3)
