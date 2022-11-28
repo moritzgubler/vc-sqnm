@@ -21,7 +21,6 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import numpy as np
 import sqnm
 import sys
 
@@ -32,7 +31,7 @@ class free_sqnm:
     More informations about the algorithm can be found here: https://arxiv.org/abs/2206.07339
     """
 
-    def __init__(self, nat, initial_step_size, nhist_max, alpha_min, eps_subsp):
+    def __init__(self, nat, initial_step_size, nhist_max, alpha_min, eps_subsp, use_cupy = False, cupy_in_and_output = False):
         """
         Construct a optimizer object that can be used for free or fixed cell optimization.
          Parameters
@@ -52,13 +51,20 @@ class free_sqnm:
             Lower limit on linear dependencies of basis vectors in history list. Default 1.e-4.
         """
 
+        self.use_cupy = use_cupy
+        self.cupy_in_and_output = cupy_in_and_output
+        if self.use_cupy:
+            self.np = __import__('cupy')
+        else:
+            self.np = __import__('numpy')
+
         self.nat = nat
         self.ndim = 3 * nat
         if self.ndim < nhist_max:
             print("Number of subspace dimensions bigger than number of dimensions.")
             print("Number of subspace dimensions will be reduced")
             nhist_max = self.ndim
-        self.optimizer = sqnm.SQNM(self.ndim, nhist_max, initial_step_size, eps_subsp, alpha_min)
+        self.optimizer = sqnm.SQNM(self.ndim, nhist_max, initial_step_size, eps_subsp, alpha_min, use_cupy, use_cupy)
         self.fluct = 0.0
 
     def optimizer_step(self, pos, epot, forces):
@@ -79,18 +85,24 @@ class free_sqnm:
             Forces of current geometry
         """
 
+        if self.use_cupy and not self.cupy_in_and_output:
+            pos = self.np.array(pos)
+            forces = self.np.array(forces)
+
         # check for noise in forces using eq. 23 of vc-sqnm paper
-        fnoise = np.linalg.norm(np.sum(forces, axis=1)) / np.sqrt(3 * self.nat)
+        fnoise = self.np.linalg.norm(self.np.sum(forces, axis=1)) / self.np.sqrt(3 * self.nat)
         if self.fluct == 0.0:
             self.fluct = fnoise
         else:
             self.fluct = .8 * self.fluct + .2 * fnoise
-        if self.fluct > 0.2 * np.max( np.abs(forces) ):
+        if self.fluct > 0.2 * self.np.max( self.np.abs(forces) ):
             print("""Warning: noise in forces is larger than 0.2 times the largest force component.
             Convergence is not guaranteed.""", file=sys.stderr)
         pos = pos.reshape(3 * self.nat)
         pos = pos + self.optimizer.sqnm_step(pos, epot, -forces.reshape(3 * self.nat))
         pos = pos.reshape((3, self.nat))
+        if self.use_cupy and not self.cupy_in_and_output:
+            pos = self.np.asnumpy(pos)
         return pos
 
     def lower_bound(self):
@@ -102,6 +114,7 @@ class free_sqnm:
 
 
 # the rest of this file can be used for testing only
+import numpy as np
 
 def _energyandforces(nat, pos, alat):
     import bazant
@@ -124,7 +137,7 @@ def _tests():
     alpha = -.1
 
 
-    opt = free_sqnm(nat, alpha, 10, 1e-2, 1e-4)
+    opt = free_sqnm(nat, alpha, 10, 1e-2, 1e-4, True)
 
     for i in range(30):
         epot, forces, deralat = _energyandforces(nat, pos, lat)
