@@ -136,7 +136,6 @@ def _tests():
     # of the vc-sqnm paper: https://arxiv.org/abs/2206.07339
     alpha = -.1
 
-
     opt = free_sqnm(nat, alpha, 10, 1e-2, 1e-4, True)
 
     for i in range(30):
