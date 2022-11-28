@@ -21,7 +21,6 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import numpy as np
 import sqnm
 import sys
 
@@ -31,7 +30,7 @@ class periodic_sqnm:
     Implementation of the vc-sqnm method. More informations about the algorithm can be found here: https://arxiv.org/abs/2206.07339
     """
 
-    def __init__(self, nat, init_lat, initial_step_size, nhist_max, lattice_weigth, alpha_min, eps_subsp, use_cupy = False):
+    def __init__(self, nat, init_lat, initial_step_size, nhist_max, lattice_weigth, alpha_min, eps_subsp, use_cupy = False, cupy_in_and_output = False):
         """
         Construct a periodic optimizer object that can be used for variable cell shape optimization.
         Parameters
@@ -53,23 +52,33 @@ class periodic_sqnm:
             Lower limit on linear dependencies of basis vectors in history list. Default 1.e-4.
         """
 
+        self.use_cupy = use_cupy
+        self.cupy_in_and_output = cupy_in_and_output
+        if self.use_cupy:
+            self.np = __import__('cupy')
+        else:
+            self.np = __import__('numpy')
+
         self.nat = nat
         self.ndim = 3 * nat + 9
         self.lattice_weight = lattice_weigth
-        self.initial_lat = init_lat
-        self.initial_lat_inverse = np.linalg.inv(init_lat)
-        self.lattice_transformer = np.diag(1 / np.linalg.norm(self.initial_lat, axis=0)) * self.lattice_weight * np.sqrt(nat)
-        self.lattice_transformer_inv = np.linalg.inv(self.lattice_transformer)
-        self.optimizer = sqnm.SQNM(self.ndim, nhist_max, initial_step_size, eps_subsp, alpha_min, use_cupy=use_cupy)
+        if self.use_cupy:
+            self.initial_lat = self.np.array(init_lat)
+        else:
+            self.initial_lat = init_lat
+        self.initial_lat_inverse = self.np.linalg.inv(self.initial_lat)
+        self.lattice_transformer = self.np.diag(1 / self.np.linalg.norm(self.initial_lat, axis=0)) * self.lattice_weight * self.np.sqrt(nat)
+        self.lattice_transformer_inv = self.np.linalg.inv(self.lattice_transformer)
+        self.optimizer = sqnm.SQNM(self.ndim, nhist_max, initial_step_size, eps_subsp, alpha_min, use_cupy=use_cupy, cupy_in_and_output=use_cupy)
         self.fluct = 0.0
-        self.a_inv = np.zeros((3,3))
-        self.q = np.zeros(3 * nat)
-        self.df_dq = np.zeros(3 * nat)
-        self.a_tilde = np.zeros((3,3))
-        self.df_da_tilde = np.zeros((3, 3))
-        self.q_and_lat = np.zeros( 3*nat + 9)
-        self.dq_and_dlat = np.zeros( 3*nat + 9)
-        self.dd = np.zeros( 3*nat + 9)
+        self.a_inv = self.np.zeros((3,3))
+        self.q = self.np.zeros(3 * nat)
+        self.df_dq = self.np.zeros(3 * nat)
+        self.a_tilde = self.np.zeros((3,3))
+        self.df_da_tilde = self.np.zeros((3, 3))
+        self.q_and_lat = self.np.zeros( 3*nat + 9)
+        self.dq_and_dlat = self.np.zeros( 3*nat + 9)
+        self.dd = self.np.zeros( 3*nat + 9)
 
     def optimizer_step(self, pos, alat, epot, forces, deralat):
         """
@@ -95,17 +104,23 @@ class periodic_sqnm:
             See equation 9 of the vc-sqnm paper. https://arxiv.org/abs/2206.07339
         """
 
+        if self.use_cupy and not self.cupy_in_and_output:
+            pos = self.np.array(pos)
+            alat = self.np.array(alat)
+            forces = self.np.array(forces)
+            deralat = self.np.array(deralat)
+
         # check for noise in forces using eq. 23 of vc-sqnm paper
-        fnoise = np.linalg.norm(np.sum(forces, axis=1)) / np.sqrt(3 * self.nat)
+        fnoise = self.np.linalg.norm(self.np.sum(forces, axis=1)) / self.np.sqrt(3 * self.nat)
         if self.fluct == 0.0:
             self.fluct = fnoise
         else:
             self.fluct = .8 * self.fluct + .2 * fnoise
-        if self.fluct > 0.2 * np.max( np.abs(forces) ):
+        if self.fluct > 0.2 * self.np.max( self.np.abs(forces) ):
             print("""Warning: noise in forces is larger than 0.2 times the largest force component. 
             Convergence is not guaranteed.""", file=sys.stderr)
 
-        self.a_inv = np.linalg.inv(alat)
+        self.a_inv = self.np.linalg.inv(alat)
 
         self.q = ((self.initial_lat @ self.a_inv) @ pos).reshape(3 * self.nat)
         self.df_dq = (- (alat @ self.initial_lat_inverse) @ forces).reshape(3 * self.nat)
@@ -113,8 +128,8 @@ class periodic_sqnm:
         self.a_tilde = (alat @ self.lattice_transformer).reshape(9)
         self.df_da_tilde = (- deralat @ self.lattice_transformer_inv).reshape(9)
 
-        self.q_and_lat = np.concatenate((self.q, self.a_tilde))
-        self.dq_and_dlat = np.concatenate((self.df_dq, self.df_da_tilde))
+        self.q_and_lat = self.np.concatenate((self.q, self.a_tilde))
+        self.dq_and_dlat = self.np.concatenate((self.df_dq, self.df_da_tilde))
 
         self.dd = self.optimizer.sqnm_step(self.q_and_lat, epot, self.dq_and_dlat)
 
@@ -122,6 +137,10 @@ class periodic_sqnm:
 
         alat = (self.q_and_lat[(3*self.nat):].reshape(3, 3)) @ self.lattice_transformer_inv
         pos = (alat @ self.initial_lat_inverse) @ (self.q_and_lat[:(3 * self.nat)].reshape(3, self.nat))
+
+        if self.use_cupy and not self.cupy_in_and_output:
+            pos = self.np.asnumpy(pos)
+            alat = self.np.asnumpy(alat)
 
         return pos, alat
 
@@ -132,6 +151,8 @@ class periodic_sqnm:
         return self.optimizer.lower_bound()
 
 # the rest of this file can be used for testing only
+
+import numpy as np
 
 def _energyandforces(nat, pos, alat):
     import bazant
@@ -164,9 +185,9 @@ def _tests():
 
     e0 = -1.3670604955980028
 
-    opt_clean = periodic_sqnm(nat, lat, alpha, 10, lattice_weight, 1e-2, 1e-3, use_cupy=True)
+    opt_clean = periodic_sqnm(nat, lat, alpha, 10, lattice_weight, 1e-2, 1e-3, use_cupy=False)
 
-    for i in range(300):
+    for i in range(30):
         epot, forces, deralat = _energyandforces(nat, pos, lat)
         t1 = time.time()
         pos, lat = opt_clean.optimizer_step(pos, lat, epot, forces, deralat)
