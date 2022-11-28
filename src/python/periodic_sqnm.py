@@ -31,7 +31,7 @@ class periodic_sqnm:
     Implementation of the vc-sqnm method. More informations about the algorithm can be found here: https://arxiv.org/abs/2206.07339
     """
 
-    def __init__(self, nat, init_lat, initial_step_size, nhist_max, lattice_weigth, alpha_min, eps_subsp):
+    def __init__(self, nat, init_lat, initial_step_size, nhist_max, lattice_weigth, alpha_min, eps_subsp, use_cupy = False):
         """
         Construct a periodic optimizer object that can be used for variable cell shape optimization.
         Parameters
@@ -60,7 +60,7 @@ class periodic_sqnm:
         self.initial_lat_inverse = np.linalg.inv(init_lat)
         self.lattice_transformer = np.diag(1 / np.linalg.norm(self.initial_lat, axis=0)) * self.lattice_weight * np.sqrt(nat)
         self.lattice_transformer_inv = np.linalg.inv(self.lattice_transformer)
-        self.optimizer = sqnm.SQNM(self.ndim, nhist_max, initial_step_size, eps_subsp, alpha_min)
+        self.optimizer = sqnm.SQNM(self.ndim, nhist_max, initial_step_size, eps_subsp, alpha_min, use_cupy=use_cupy)
         self.fluct = 0.0
         self.a_inv = np.zeros((3,3))
         self.q = np.zeros(3 * nat)
@@ -129,7 +129,6 @@ class periodic_sqnm:
         """ Returns an estimate of a lower bound for the local minumum.
         The estimate is only accurate when the optimization is converged.
         """
-
         return self.optimizer.lower_bound()
 
 # the rest of this file can be used for testing only
@@ -160,23 +159,20 @@ def _tests():
     pos = at.get_positions().T / b2a
     lat = at.get_cell().T / b2a
     nat = at.get_global_number_of_atoms()
+    alpha = 2
     lattice_weight = 2.0
-    nhist_max = 10
 
-    # if alpha is negative, initial step size will be estimated using eq. 24 and 25 of the
-    # of the vc-sqnm paper: https://arxiv.org/abs/2206.07339
-    alpha = -0.1
-    print('initial step size', alpha)
+    e0 = -1.3670604955980028
 
-    opt = periodic_sqnm(nat, lat, alpha, nhist_max, lattice_weight, 1e-2, 1e-3)
+    opt_clean = periodic_sqnm(nat, lat, alpha, 10, lattice_weight, 1e-2, 1e-3, use_cupy=True)
 
-    for i in range(30):
+    for i in range(300):
         epot, forces, deralat = _energyandforces(nat, pos, lat)
-        pos, lat = opt.optimizer_step(pos, lat, epot, forces, deralat)
-        print('Epot: %12.10f, Force and lattice derivative norm: %.2E' % (epot, max(np.max(np.linalg.norm(forces, axis=0)), np.linalg.norm(deralat))) )
-    print('The current energy is: ', epot)
-    print('The estimated lower bound of the ground state is:', opt.lower_bound())
-    print('The estimated energy error is:', epot - opt.lower_bound())
+        t1 = time.time()
+        pos, lat = opt_clean.optimizer_step(pos, lat, epot, forces, deralat)
+        print(time.time() - t1)
+        est1 = opt_clean.lower_bound()
+        print(epot, max(np.linalg.norm(forces, axis=0).max(), np.abs(deralat).max()))
 
 
 if __name__ == "__main__":
