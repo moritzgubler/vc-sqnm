@@ -21,7 +21,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import historylist
+import sqnm.historylist
 import time
 
 class SQNM:
@@ -64,8 +64,8 @@ class SQNM:
             self.nhist_max = self.ndim
         self.eps_subsp = eps_supsp
         self.alpha_min = alpha_min
-        self.xlist = historylist.HistoryList(self.ndim, self.nhist_max, use_cupy)
-        self.flist = historylist.HistoryList(self.ndim, self.nhist_max, use_cupy)
+        self.xlist = sqnm.historylist.HistoryList(self.ndim, self.nhist_max, use_cupy)
+        self.flist = sqnm.historylist.HistoryList(self.ndim, self.nhist_max, use_cupy)
         self.dim_subs = 0
         
         # when alpha is smaller than zero estimate initial step size.

@@ -21,7 +21,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import sqnm
+import sqnm.sqnm
 import sys
 
 
@@ -64,7 +64,7 @@ class free_sqnm:
             print("Number of subspace dimensions bigger than number of dimensions.")
             print("Number of subspace dimensions will be reduced")
             nhist_max = self.ndim
-        self.optimizer = sqnm.SQNM(self.ndim, nhist_max, initial_step_size, eps_subsp, alpha_min, use_cupy, use_cupy)
+        self.optimizer = sqnm.sqnm.SQNM(self.ndim, nhist_max, initial_step_size, eps_subsp, alpha_min, use_cupy, use_cupy)
         self.fluct = 0.0
 
     def optimizer_step(self, pos, epot, forces):
