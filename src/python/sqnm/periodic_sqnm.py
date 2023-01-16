@@ -41,7 +41,7 @@ class periodic_sqnm:
             Matrix containing initial lattice vectors stored columnwise.
         initial_step_size: double
             initial step size. default is 1.0. For systems with hard bonds (e.g. C-C) use a value between and 1.0 and
-            * 2.5. If a system only contains weaker bonds a value up to 5.0 may speed up the convergence.
+             2.5. If a system only contains weaker bonds a value up to 5.0 may speed up the convergence.
         nhist_max: int
             Maximal number of steps that will be stored in the history list. Use a value between 3 and 20. Must be <= than 3*nat + 9.
         lattice_weight: double
