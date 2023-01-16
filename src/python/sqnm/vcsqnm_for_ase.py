@@ -34,9 +34,12 @@ class aseOptimizer():
     optimizer = None
     nat = 0
 
-    def __init__(self, initial_structure, vc_relax = False, initial_step_size = -0.01, nhist_max =10, lattice_weigth = 2.0, alpha_min = 1e-3, eps_subsp = 1e-3):
+    def __init__(self, initial_structure, vc_relax = False, force_tol=1e-2, maximalSteps = 500, initial_step_size = -0.01
+            , nhist_max =10, lattice_weigth = 2.0, alpha_min = 1e-3, eps_subsp = 1e-3):
         self.initial_structure = initial_structure
         self.vc_relax = vc_relax
+        self.force_tol=force_tol
+        self.maximalSteps = maximalSteps
 
         self.nat = initial_structure.get_global_number_of_atoms()
 
@@ -56,7 +59,12 @@ class aseOptimizer():
         if self.vc_relax:
             self.cell = atoms.get_cell(True).T
             self.stress = atoms.get_stress(voigt=False)
-            self.deralat = - np.linalg.det(self.cell) * self.stress @ np.linalg.inv(self.cell)
+            self.deralat = self._getLatticeDerivative()
+    
+
+    def _getLatticeDerivative(self):
+        return - np.linalg.det(self.cell) * np.linalg.inv(self.cell).T @ self.stress
+
 
     def step(self, atoms):
         self._extractInfo(atoms)
@@ -68,5 +76,20 @@ class aseOptimizer():
             self.positions = self.optimizer.optimizer_step(self.positions, self.positions, self.energy, self.forces)
 
         atoms.set_positions(self.positions.T)
+
+    
+    def _getDerivativeNorm(self):
+        forceNorm = np.max(np.abs(self.forces))
+        if self.vc_relax:
+            forceNorm = max(forceNorm, np.max(np.abs(self._getLatticeDerivative())))
+        return forceNorm
+
+    
+    def optimize(self):
+        # not tested
+        i = 0
+        while( i < self.maximalSteps and self._getDerivativeNorm() > self.force_tol ):
+            self.step(self.initial_structure)
+        return self.initial_structure
 
         
