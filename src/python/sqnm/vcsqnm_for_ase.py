@@ -63,7 +63,7 @@ class aseOptimizer():
     
 
     def _getLatticeDerivative(self):
-        return - np.linalg.det(self.cell) * np.linalg.inv(self.cell).T @ self.stress
+        return - np.linalg.det(self.cell) * self.stress @ np.linalg.inv(self.cell).T
 
 
     def step(self, atoms):
