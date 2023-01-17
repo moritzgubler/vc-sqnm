@@ -73,7 +73,7 @@ class aseOptimizer():
             self.positions, self.cell = self.optimizer.optimizer_step(self.positions, self.cell, self.energy, self.forces, self.deralat)
             atoms.set_cell(self.cell.T)
         else:
-            self.positions = self.optimizer.optimizer_step(self.positions, self.positions, self.energy, self.forces)
+            self.positions = self.optimizer.optimizer_step(self.positions, self.energy, self.forces)
 
         atoms.set_positions(self.positions.T)
 
