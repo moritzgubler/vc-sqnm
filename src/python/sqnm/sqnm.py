@@ -66,7 +66,7 @@ class SQNM:
         self.alpha_min = alpha_min
         self.xlist = sqnm.historylist.HistoryList(self.ndim, self.nhist_max, use_cupy)
         self.flist = sqnm.historylist.HistoryList(self.ndim, self.nhist_max, use_cupy)
-        self.dim_subs = 0
+        self.dim_subspace = 0
         
         # when alpha is smaller than zero estimate initial step size.
         self.estimate_step_size = False
@@ -133,7 +133,7 @@ class SQNM:
                 l1 = (f_of_x - self.prev_f_of_x + self.alpha * self.np.linalg.norm(self.prev_df_dx)**2) / (0.5 * (self.alpha**2) * self.np.linalg.norm(self.prev_df_dx)**2)
                 l2 = self.np.linalg.norm(df_dx - self.prev_df_dx) / (self.alpha * self.np.linalg.norm(self.prev_df_dx))
                 self.alpha = 1.0 / max(l1, l2)
-                print("#Automatic initial step size guess: ", self.alpha, l1, l2)
+                # print("#Automatic initial step size guess: ", self.alpha, l1, l2)
                 self.estimate_step_size = False
             else:
                 # calculate and adjust gainratio
@@ -152,8 +152,7 @@ class SQNM:
 
             # remove noisy directions from subspace
             dim_subsp = sum(self.s_eval[:self.nhist] / self.s_eval[self.nhist - 1] > self.eps_subsp)
-            #dim_subsp = min(1, dim_subsp)
-            self.dim_subsp = dim_subsp
+            self.dim_subspace = dim_subsp
             self.s_eval[:dim_subsp] = self.s_eval[(self.nhist - dim_subsp):self.nhist]
             self.s_evec[:, :dim_subsp] = self.s_evec[:, (self.nhist - dim_subsp):self.nhist]
 
