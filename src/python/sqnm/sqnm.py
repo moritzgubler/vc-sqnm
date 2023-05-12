@@ -204,7 +204,7 @@ class SQNM:
 
         if self.nhist < 1:
             print("At least one optimization step needs to be done before lower_limit can be called.")
-            return 0, 0
+            return 0.0
         return self.prev_f_of_x - .5 * self.np.dot(self.prev_df_dx, self.prev_df_dx) / self.h_eval[0]
 
 # the rest of this file can be used for testing only
