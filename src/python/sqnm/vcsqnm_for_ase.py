@@ -25,6 +25,7 @@ import sqnm.periodic_sqnm
 import sqnm.free_or_fixed_cell_sqnm
 import sys
 import numpy as np
+import logging
 
 
 class aseOptimizer():
@@ -89,6 +90,7 @@ class aseOptimizer():
         # not tested
         i = 0
         while( i < self.maximalSteps and self._getDerivativeNorm() > self.force_tol ):
+            logging.INFO("Relaxation step: %d energy: %f norm of forces: %f"% (i, self.initial_structure.get_potential_energy(), np.max(np.abs(self.initial_structure.get_forces()))) )
             self.step(self.initial_structure)
         return self.initial_structure
 
