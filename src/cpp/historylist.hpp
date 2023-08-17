@@ -25,17 +25,14 @@ namespace hlist_space{
     Eigen::MatrixXd normalized_difflist;
 
 
-    HistoryList(int &ndim_, int &nhistx_)
+    HistoryList(int ndim_, int nhistx_) : nhistx(nhistx_), ndim(ndim_)
     {
-      nhistx = nhistx_;
-      ndim = ndim_;
       hlist.resize(ndim, nhistx);
       difflist.resize(ndim, nhistx);
       normalized_difflist.resize(ndim, nhistx);
-      i_count = 0;
     }
 
-    int add(Eigen::VectorXd &x_in)
+    int add(const Eigen::VectorXd &x_in)
     {
       if (i_count < nhistx){
         hlist.col(i_count) = x_in;
