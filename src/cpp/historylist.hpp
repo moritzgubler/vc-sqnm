@@ -34,10 +34,11 @@ namespace hlist_space{
 
     int add(const Eigen::VectorXd &x_in)
     {
-      if (i_count < nhistx){ // list not yet full, append at the end.
+      if (i_count < nhistx){
+        // list not yet full, append at the end.
         hlist.col(i_count) = x_in;
         i_count += 1;
-        // calculate difference list
+        // calculate difference list if we already have more than one element
         if (i_count > 1)
         {
             difflist.block(0, 0, ndim, i_count - 1) = hlist.block(0, 1, ndim, i_count - 1) - hlist.block(0, 0, ndim, i_count -1);
@@ -47,9 +48,7 @@ namespace hlist_space{
       } else {
         // list is full, remove oldest element and shift all to new place.
         oldElem = hlist.col(0);
-        for (int i = 0; i < nhistx - 1; i++){
-          hlist.col(i) = hlist.col(i+1);
-        }
+        hlist.block(0, 0, ndim, nhistx - 1) = hlist.block(0, 1, ndim, nhistx - 1);
         hlist.col(nhistx - 1) = x_in;
         // calculate difference list
         difflist.col(0) = hlist.col(0) - oldElem;
