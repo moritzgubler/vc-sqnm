@@ -26,6 +26,9 @@ import sqnm.free_or_fixed_cell_sqnm
 import sys
 import numpy as np
 import logging
+from ase.io import write
+from ase.atoms import Atoms
+import os
 
 
 class aseOptimizer():
@@ -67,7 +70,7 @@ class aseOptimizer():
         return - np.linalg.det(self.cell) * self.stress @ np.linalg.inv(self.cell).T
 
 
-    def step(self, atoms):
+    def step(self, atoms: Atoms):
         self._extractInfo(atoms)
 
         if self.vc_relax:
@@ -86,13 +89,28 @@ class aseOptimizer():
         return forceNorm
 
     
-    def optimize(self):
-        # not tested
+    def optimize(self, trajectory_filename: str = None):
+        write_opt_file = not trajectory_filename == None
+        if write_opt_file:
+            if os.path.exists(trajectory_filename):
+                os.remove(trajectory_filename)
+            f = open(trajectory_filename, mode = 'w')
         i = 0
         while( i < self.maximalSteps and self._getDerivativeNorm() > self.force_tol ):
-            logging.info("Relaxation step: %d energy: %f norm of forces: %f"% (i, self.initial_structure.get_potential_energy(), np.max(np.abs(self.initial_structure.get_forces()))) )
+            if self.vc_relax:
+                logging.info("Relaxation step: %d energy: %f norm of forces: %f, norm of lattice derivative: %f"% (i, self.initial_structure.get_potential_energy(), np.max(np.abs(self.initial_structure.get_forces())), np.max(np.abs(self._getLatticeDerivative()))) )
+            else:
+                logging.info("Relaxation step: %d energy: %f norm of forces: %f"% (i, self.initial_structure.get_potential_energy(), np.max(np.abs(self.initial_structure.get_forces()))) )
+            if write_opt_file:
+                write(f, self.initial_structure, parallel= False)
+                f.flush()
             self.step(self.initial_structure)
             i += 1
+
+        if write_opt_file:
+            write(f, self.initial_structure, parallel= False)
+            f.close()
+
         return self.initial_structure
 
         
