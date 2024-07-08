@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name='sqnm',
-    version='1.0.0',    
+    version='1.2',    
     description='Implementation of the SQNM optimization method',
     url='https://github.com/moritzgubler/vc-sqnm',
     author='Moritz Guber',
