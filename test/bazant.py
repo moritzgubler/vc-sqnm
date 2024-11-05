@@ -1,7 +1,11 @@
 import numpy as np
-import numba
+try:
+    from numba import njit
+except ImportError:
+    def njit(f):
+        return f
 
-# @numba.jit(nopython=True)
+@njit()
 def nnlist(nat, nnbrx, alat, cutoff, rxyz):
 #   implicit none
 #   integer, parameter :: nwork=1000
@@ -85,7 +89,7 @@ def nnlist(nat, nnbrx, alat, cutoff, rxyz):
     return lsta, lstb, rel
 # end subroutine nnlist
 
-# @numba.jit(nopython=True)
+@njit()
 def energyandforces_bazant(nat, alat0, rxyz0):
 #
 #  !   INTERFACE
@@ -826,16 +830,16 @@ def test():
     print("difference in forces:", np.linalg.norm(fxyz - fxyz1))
     print('difference in lattice derivatives:', np.linalg.norm(deralat - deralat1))
 
-    # t5 = time.time()
-    # etot, fxyz, deralat, stress = energyandforces_bazant(nat, alat, positions)
-    # t6 = time.time()
+    t5 = time.time()
+    etot, fxyz, deralat, stress = energyandforces_bazant(nat, alat, positions)
+    t6 = time.time()
 
-    # print(etot)
+    print(etot)
 
-    # print('Fortran time:', t2 - t1)
-    # print('Python time:', t4 - t3)
-    # print('Python time (compiled):', t6 - t5)
-    # print('Speedup:', (t4 - t3) / (t2 - t1), (t6 - t5) / (t2 - t1))
+    print('Fortran time:', t2 - t1)
+    print('Python time:', t4 - t3)
+    print('Python time (compiled):', t6 - t5)
+    print('Speedup:', (t4 - t3) / (t2 - t1), (t6 - t5) / (t2 - t1))
 
 if __name__ == '__main__':
     test()
