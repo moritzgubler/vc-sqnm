@@ -58,7 +58,6 @@ def nnlist(nat, nnbrx, alat, cutoff, rxyz):
                         dist2 = relx**2 + rely**2 + relz**2
 
                         if dist2 > 1.0e-20 and dist2 <= cutoff2:
-                            ind = ind + 1
                             if (ind >= nnbrx*nat):
                                 print('enlarge nnbrx')
                                 # quit()
@@ -70,12 +69,13 @@ def nnlist(nat, nnbrx, alat, cutoff, rxyz):
                             rel[2, ind] = relz*ttinv
                             rel[3, ind] = tt
                             rel[4, ind] = ttinv
+                            ind = ind + 1
     #         end if
     #       end do
     #     end do
     #   end do
     # end do
-        lsta[1, iat] = ind
+        lsta[1, iat] = ind - 1
 #   end do
 
 #   !  do iat=1,nat
@@ -268,6 +268,17 @@ def energyandforces_bazant(nat, alat0, rxyz0):
 
     # call nnlist(nat, nnbrx, alat, cutoff, rxyz, lsta, lstb, rel)
     lsta, lstb, rel = nnlist(nat, nnbrx, alat, cutoff, rxyz)
+
+    # print('lsta')
+    # print(lsta)
+    # print('lstb')
+    # print(lstb)
+    # print('rel')
+    # print(rel[0, 0:4])
+    # print(rel[1, 0:4])
+    # print(rel[2, 0:4])
+    # print(rel[3, 0:4])
+    # print(rel[4, 0:4])
     # call invertalat(alat, alatinv)
 
     # !Allocation of temporary arrays
@@ -447,13 +458,15 @@ def energyandforces_bazant(nat, alat0, rxyz0):
         # !  --- LEVEL 2: LOOP FOR PAIR INTERACTIONS ---
 
         # do nj = 1, n2 - 1
-        for nj in range(n2 - 1):
+        # print('n2', n2)
+        for nj in range(n2):
 
             temp0 = s2_t1[nj] - pZ
 
             # !   two-body energy V2(rij,Z)
 
             ener_iat = ener_iat + temp0*s2_t0[nj]
+            # print('ener_iat before', ener_iat, nj)
 
             # two-body forces
 
@@ -531,7 +544,8 @@ def energyandforces_bazant(nat, alat0, rxyz0):
         # !  --- LEVEL 2: FIRST LOOP FOR THREE-BODY INTERACTIONS ---
 
         # do nj = 1, n3 - 2
-        for nj in range(n3 - 2):
+        # print('n3', n3)
+        for nj in range(n3 - 1):
 
             j = num3[nj]
 
@@ -553,7 +567,12 @@ def energyandforces_bazant(nat, alat0, rxyz0):
                 # !   three-body energy
 
                 temp1 = s3_g[nj] * s3_g[nk]
+                # print('ener_iat', ener_iat)
                 ener_iat = ener_iat + temp1*H
+                # print('temp1', temp1)
+                # print('H', H)
+                # print('ener_iat', ener_iat)
+                # quit()
 
                 # !   (-) radial force on atom j
 
@@ -777,8 +796,10 @@ def test():
 
     import time
 
-    atoms = read('test.ascii')
+    atoms = read('test64.ascii')
     nat = len(atoms)
+
+    atoms.rattle(0.01)
 
     import ase.units as units
 
@@ -790,10 +811,10 @@ def test():
     positions /= units.Bohr
 
     t1 = time.time()
-    etot, fxyz, deralat = bf.energyandforces_bazant(alat, positions)
+    etot1, fxyz1, deralat1 = bf.energyandforces_bazant(alat, positions)
     t2 = time.time()
 
-    print(etot)
+    print(etot1)
 
     t3 = time.time()
     etot, fxyz, deralat, stress = energyandforces_bazant(nat, alat, positions)
@@ -801,16 +822,20 @@ def test():
 
     print(etot)
 
-    t5 = time.time()
-    etot, fxyz, deralat, stress = energyandforces_bazant(nat, alat, positions)
-    t6 = time.time()
+    print("difference in energy:", etot - etot1)
+    print("difference in forces:", np.linalg.norm(fxyz - fxyz1))
+    print('difference in lattice derivatives:', np.linalg.norm(deralat - deralat1))
 
-    print(etot)
+    # t5 = time.time()
+    # etot, fxyz, deralat, stress = energyandforces_bazant(nat, alat, positions)
+    # t6 = time.time()
 
-    print('Fortran time:', t2 - t1)
-    print('Python time:', t4 - t3)
-    print('Python time (compiled):', t6 - t5)
-    print('Speedup:', (t4 - t3) / (t2 - t1), (t6 - t5) / (t2 - t1))
+    # print(etot)
+
+    # print('Fortran time:', t2 - t1)
+    # print('Python time:', t4 - t3)
+    # print('Python time (compiled):', t6 - t5)
+    # print('Speedup:', (t4 - t3) / (t2 - t1), (t6 - t5) / (t2 - t1))
 
 if __name__ == '__main__':
     test()
