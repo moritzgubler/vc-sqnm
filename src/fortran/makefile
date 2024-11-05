@@ -1,6 +1,6 @@
 FC := gfortran
 
-libs:= -llapack -lblas
+libs:= -lopenblas
 
 ftn_flags := -g
 
