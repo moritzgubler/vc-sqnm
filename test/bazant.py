@@ -6,46 +6,36 @@ except ImportError:
         return f
 
 @njit()
-def nnlist(nat, nnbrx, alat, cutoff, rxyz):
-#   implicit none
-#   integer, parameter :: nwork=1000
-#   real(8) :: rxyz(3, nat), rel(5, nat*nnbrx)
-#   real(8) :: alat(3, 3)
-#   integer :: lsta(2, nat), lstb(nnbrx*nat)
-#   real(8) :: alatalat(3, 3), eigalat(3), workalat(nwork)
-#   integer :: ixyzmax, info, ind, iat, jat, ix, iy, iz, nat, nnbrx, i, j
-#   real(8) :: cutoff2, cutoff, dist2, relx, rely, relz, tt, ttinv, xj, yj, zj
+def nnlist(nnbrx, alat, cutoff, rxyz):
+    """
+    Calculate the neighbor list for a given set of atoms and lattice vectors
 
-    # if (alat(1, 1)*alat(2, 2)*alat(3, 3) .eq. 0.d0) then ! no periodic boundary condition
+    Parameters
+
+    nnbrx : int Maximum number of neighbors
+    alat : np.ndarray(3, 3) Lattice vectors, each row is one vector
+    cutoff : float Cutoff radius
+    rxyz : np.ndarray(nat, 3) Atomic positions
+    """
+
+    nat = rxyz.shape[0]
+
+    # if cell volume is zero, we are in a non-periodic system
     if np.abs(np.linalg.det(alat)) < 1e-10:
         ixyzmax = 0
     else:  #! periodic boundary conditions
-        # alatalat = np.zeros((3, 3))
-        # for i in range(3):
-        #     for j in range(3):
-        #         alatalat[i, j] = alat[0, i] * alat[0, j] + alat[1, i] * alat[1, j] + alat[2, i] * alat[2, j]
-
         eigval, eigvec = np.linalg.eigh(alat.T @ alat)
         ixyzmax = int(np.sqrt(1.0 / eigval[0]) * cutoff) + 1
         print(np.sqrt(1.0 / eigval[0]) * cutoff, np.sqrt(1.0 / eigval[1]) * cutoff, np.sqrt(1.0 / eigval[2]) * cutoff)
     cutoff2 = cutoff * cutoff
 
-#   !  write(*,*) 'ixyzmax ',ixyzmax
-
     ind = 0
-    lsta = np.zeros((2, nat), dtype=np.int32)
-    lstb = np.zeros(nnbrx * nat, dtype=np.int32)
-    rel = np.zeros((nat * nnbrx, 5))
-#   do iat = 1, nat
+    lsta = np.empty((2, nat), dtype=np.int32)
+    lstb = np.empty(nnbrx * nat, dtype=np.int32)
+    rel = np.empty((nat * nnbrx, 5))
     for iat in range(nat):
         lsta[0, iat] = ind
-
-    # do jat = 1, nat
         for jat in range(nat):
-
-    #   do ix = -ixyzmax, ixyzmax
-    #     do iy = -ixyzmax, ixyzmax
-    #       do iz = -ixyzmax, ixyzmax
             for ix in range(-ixyzmax, ixyzmax + 1):
                for iy in range(-ixyzmax, ixyzmax + 1):
                    for iz in range(-ixyzmax, ixyzmax + 1):
@@ -58,9 +48,8 @@ def nnlist(nat, nnbrx, alat, cutoff, rxyz):
                         dist2 = relx * relx + rely * rely + relz * relz
 
                         if dist2 > 1.0e-20 and dist2 <= cutoff2:
-                            # if (ind >= nnbrx*nat):
-                            #     print('enlarge nnbrx')
-                            #     # quit()
+                            if (ind >= nnbrx*nat):
+                                raise ValueError('enlarge nnbrx')
                             lstb[ind] = jat
                             tt = np.sqrt(dist2)
                             ttinv = 1.0 / tt
@@ -70,153 +59,169 @@ def nnlist(nat, nnbrx, alat, cutoff, rxyz):
                             rel[ind, 3] = tt
                             rel[ind, 4] = ttinv
                             ind = ind + 1
-    #         end if
-    #       end do
-    #     end do
-    #   end do
-    # end do
         lsta[1, iat] = ind - 1
-#   end do
-
-#   !  do iat=1,nat
-#   !  write(*,'(i3,1x,20(1x,i2))') iat,(lstb(j),j=lsta(1,iat),lsta(2,iat))
-#   !  write(*,'(i3,1x,20(1x,e9.2))') iat,(rel(4,j),j=lsta(1,iat),lsta(2,iat))
-#   !  enddo
     return lsta, lstb, rel
-# end subroutine nnlist
 
 @njit()
-def energyandforces_bazant(nat, alat0, rxyz0):
-#
-#  !   INTERFACE
-#  !   ---------
-#  !    Internally things are computed in Angstroem and eV, The input (rxyz0,alat0) is however in bohr and
-#  !     the output energy in Hartree, fxyz and deralat  in Hartree/Bohr
-#
-#  !     nat : number of particles
-#  !     rxyz0 : array (3,N) of positions
-#  !     alat0 : lattice vecors (each column is one vector)
-#  !     Etot : returned energy in eV
-#  !     fxyz : returned forces array (3,N) in eV/Angstroms
-#  !     alatder  :  derivative of energy with respsct to altice vectors
-#
-#  !     neighbors(p_nbrs(i)),...,neighbors(p_nbrs(i+1)) are the
-#  !     atoms which are "neighbors" of atom i, using a standard Verlet
-#  !     neighbor list. These are a global arrays, not passed, that are declared
-#  !     in "edip_neighbors_include.h". This way of storing atomi! positions
-#  !     is not unique, and will require a customized patch to the main MD program.
-#
-#  !     The parameters of the potential initialized in input_EDIP_params() are global
-#  !     variables declared in "edip_pot_include.h".
-#
-#  !   PARAMETERS
-#  !   ----------
-#
-#  !    par_cap_A,par_cap_B,par_rh,par_a,par_sig
-#  !    par_lam,par_gam,par_b,par_c,par_delta
-#  !    par_mu,par_Qo,par_palp,par_bet,par_alp
-#
-#  !    5.6714030     2.0002804     1.2085196     3.1213820     0.5774108
-#  !    1.4533108     1.1247945     3.1213820     2.5609104    78.7590539
-#  !    0.6966326   312.1341346     1.4074424     0.0070975     3.1083847
-#
-#  !    Connection between these parameters and those given in the paper,
-#  !    Justo et al., Phys. Rev. B 58, 2539 (1998):
-#
-#  !    A((B/r)**rh-palp*exp(-bet*Z*Z)) = A'((B'/r)**rh-exp(-bet*Z*Z))
-#
-#  !    so in the paper (')
-#  !    A' = A*palp
-#  !    B' = B * palp**(-1/rh)
-#  !    eta = detla/Qo
-#
-#  !    Non-adjustable parameters for tau(Z) from Ismail & Kaxiras, 1993,
-#  !    also in Bazant, Kaxiras, Justo, PRB (1997):
-#
-#  !    u1 = -0.165799;
-#  !    u2 = 32.557;
-#  !    u3 = 0.286198;
-#  !    u4 = 0.66;
-#  implicit none
-#
-#  !  ------------------------- VARIABLE DECLARATIONS -------------------------
-#  integer:: nat
-#  integer, parameter :: nnbrx = 50 !number of geighbors
-#  real*8 :: Ha_eV, Bohr_Ang
-#
-#  integer i, j, k, l, n, n2, n3, nz, iat
-#  real*8 :: dx, dy, dz, r, asqr
-#  real*8 :: rinv, rmainv, xinv, xinv3, den, Z, fZ
-#  real*8 :: dV2j, dV2ijx, dV2ijy, dV2ijz, pZ, dp
-#  real*8 :: temp0, temp1
-#  real*8 :: Qort, muhalf, u5
-#  real*8 :: rmbinv, winv, dwinv, tau, dtau, lcos, x, H, dHdx, dhdl
-#  real*8 :: dV3rij, dV3rijx, dV3rijy, dV3rijz
-#  real*8 :: dV3rik, dV3rikx, dV3riky, dV3rikz
-#  real*8 :: dV3l, dV3ljx, dV3ljy, dV3ljz, dV3lkx, dV3lky, dV3lkz
-#  real*8 :: dV2dZ, dxdZ, dV3dZ
-#  real*8 :: dEdrl, dEdrlx, dEdrly, dEdrlz
-#  real*8 :: bmc, cmbinv
-#  real*8 :: fjx, fjy, fjz, fkx, fky, fkz
-#
+def energyandforces_bazant(alat0, rxyz0):
+    """
+    Calculate the energy and forces for a given set of atoms and lattice vectors using the Bazant EDIP potential.
+    Internally things are computed in Angstroem and eV, The input (rxyz0,alat0) is however in bohr and
+    the output energy in Hartree, fxyz and deralat  in Hartree/Bohr
+
+    Parameters
+
+    alat0 : np.ndarray(3, 3) Lattice vectors, each row is one vector, units in bohr
+    rxyz0 : np.ndarray(nat, 3) Atomic positions, units in bohr
+
+    Returns
+    ener : float Energy in Hartree
+    fxyz : np.ndarray(nat, 3) Forces in Hartree/Bohr
+    stress: np.ndarray(3, 3) Stress tensor in Hartree/Bohr^3
+
+    """
+
+
+    # Connection between these parameters and those given in the paper,
+    # Justo et al., Phys. Rev. B 58, 2539 (1998):
+    #
+    # A((B/r)**rh-palp*exp(-bet*Z*Z)) = A'((B'/r)**rh-exp(-bet*Z*Z))
+    #
+    # so in the paper (')
+    # A' = A*palp
+    # B' = B * palp**(-1/rh)
+    # eta = detla/Qo
+    #
+    # Non-adjustable parameters for tau(Z) from Ismail & Kaxiras, 1993,
+    # also in Bazant, Kaxiras, Justo, PRB (1997):
+    #
+    # u1 = -0.165799;
+    # u2 = 32.557;
+    # u3 = 0.286198;
+    # u4 = 0.66;
+
+
+    #  integer i, j, k, l, n, n2, n3, nz, iat
+    i = 0
+    j = 0
+    k = 0
+    l = 0
+    n = 0
+    n2 = 0
+    n3 = 0
+    nz = 0
+    iat = 0
+    #  real*8 :: dx, dy, dz, r, asqr
+    dx = 0.0
+    dy = 0.0
+    dz = 0.0
+    r = 0.0
+    asqr = 0.0
+
+    #  real*8 :: rinv, rmainv, xinv, xinv3, den, Z, fZ
+    rinv = 0.0
+    rmainv = 0.0
+    xinv = 0.0
+    xinv3 = 0.0
+    den = 0.0
+    Z = 0.0
+    fZ = 0.0
+    #  real*8 :: dV2j, dV2ijx, dV2ijy, dV2ijz, pZ, dp
+    dV2j = 0.0
+    dV2ijx = 0.0
+    dV2ijy = 0.0
+    dV2ijz = 0.0
+    pZ = 0.0
+    dp = 0.0
+    #  real*8 :: temp0, temp1
+    temp0 = 0.0
+    temp1 = 0.0
+    #  real*8 :: Qort, muhalf, u5
+    Qort = 0.0
+    muhalf = 0.0
+    u5 = 0.0
+    #  real*8 :: rmbinv, winv, dwinv, tau, dtau, lcos, x, H, dHdx, dhdl
+    rmbinv = 0.0
+    winv = 0.0
+    dwinv = 0.0
+    tau = 0.0
+    dtau = 0.0
+    lcos = 0.0
+    x = 0.0
+    H = 0.0
+    dHdx = 0.0
+    dhdl = 0.0
+    #  real*8 :: dV3rij, dV3rijx, dV3rijy, dV3rijz
+    dV3rij = 0.0
+    dV3rijx = 0.0
+    dV3rijy = 0.0
+    dV3rijz = 0.0
+    #  real*8 :: dV3rik, dV3rikx, dV3riky, dV3rikz
+    dV3rik = 0.0
+    dV3rikx = 0.0
+    dV3riky = 0.0
+    dV3rikz = 0.0
+    #  real*8 :: dV3l, dV3ljx, dV3ljy, dV3ljz, dV3lkx, dV3lky, dV3lkz
+    dV3l = 0.0
+    dV3ljx = 0.0
+    dV3ljy = 0.0
+    dV3ljz = 0.0
+    dV3lkx = 0.0
+    dV3lky = 0.0
+    dV3lkz = 0.0
+    #  real*8 :: dV2dZ, dxdZ, dV3dZ
+    dV2dZ = 0.0
+    dxdZ = 0.0
+    dV3dZ = 0.0
+    #  real*8 :: dEdrl, dEdrlx, dEdrly, dEdrlz
+    dEdrl = 0.0
+    dEdrlx = 0.0
+    dEdrly = 0.0
+    dEdrlz = 0.0
+    #  real*8 :: bmc, cmbinv
+    bmc = 0.0
+    cmbinv = 0.0
+    #  real*8 :: fjx, fjy, fjz, fkx, fky, fkz
+    fjx = 0.0
+    fjy = 0.0
+    fjz = 0.0
+    fkx = 0.0
+    fky = 0.0
+    fkz = 0.0
+
+
     nnbrx = 50
-#  real*8 s2_t0(nnbrx), s2_t1(nnbrx), s2_t2(nnbrx), s2_t3(nnbrx), s2_dx(nnbrx), s2_dy(nnbrx), s2_dz(nnbrx), s2_r(nnbrx), &
-#    s3_g(nnbrx), s3_dg(nnbrx), s3_rinv(nnbrx), s3_dx(nnbrx), s3_dy(nnbrx), s3_dz(nnbrx), s3_r(nnbrx), &
-#    sz_df(nnbrx), sz_sum(nnbrx), sz_dx(nnbrx), sz_dy(nnbrx), sz_dz(nnbrx), sz_r(nnbrx)
+    nat = rxyz0.shape[0]
 
-    s2_t0 = np.zeros(nnbrx)
-    s2_t1 = np.zeros(nnbrx)
-    s2_t2 = np.zeros(nnbrx)
-    s2_t3 = np.zeros(nnbrx)
-    s2_dx = np.zeros(nnbrx)
-    s2_dy = np.zeros(nnbrx)
-    s2_dz = np.zeros(nnbrx)
-    s2_r = np.zeros(nnbrx)
-    s3_g = np.zeros(nnbrx)
-    s3_dg = np.zeros(nnbrx)
+    # work arrays
+    s2_t0 =   np.zeros(nnbrx)
+    s2_t1 =   np.zeros(nnbrx)
+    s2_t2 =   np.zeros(nnbrx)
+    s2_t3 =   np.zeros(nnbrx)
+    s2_dx =   np.zeros(nnbrx)
+    s2_dy =   np.zeros(nnbrx)
+    s2_dz =   np.zeros(nnbrx)
+    s2_r =    np.zeros(nnbrx)
+    s3_g =    np.zeros(nnbrx)
+    s3_dg =   np.zeros(nnbrx)
     s3_rinv = np.zeros(nnbrx)
-    s3_dx = np.zeros(nnbrx)
-    s3_dy = np.zeros(nnbrx)
-    s3_dz = np.zeros(nnbrx)
-    s3_r = np.zeros(nnbrx)
-    sz_df = np.zeros(nnbrx)
-    sz_sum = np.zeros(nnbrx)
-    sz_dx = np.zeros(nnbrx)
-    sz_dy = np.zeros(nnbrx)
-    sz_dz = np.zeros(nnbrx)
-    sz_r = np.zeros(nnbrx)
+    s3_dx =   np.zeros(nnbrx)
+    s3_dy =   np.zeros(nnbrx)
+    s3_dz =   np.zeros(nnbrx)
+    s3_r =    np.zeros(nnbrx)
+    sz_df =   np.zeros(nnbrx)
+    sz_sum =  np.zeros(nnbrx)
+    sz_dx =   np.zeros(nnbrx)
+    sz_dy =   np.zeros(nnbrx)
+    sz_dz =   np.zeros(nnbrx)
+    sz_r =    np.zeros(nnbrx)
 
-#  integer num2(nnbrx), num3(nnbrx), numz(nnbrx)
     num2 = np.zeros(nnbrx, dtype=np.int32)
     num3 = np.zeros(nnbrx, dtype=np.int32)
     numz = np.zeros(nnbrx, dtype=np.int32)
-#
-#  integer nj, nk, nl
-#  !   indices for the store arrays
-#  real*8 ::  virial, virial_xyz(3)
-#
-#  real*8 ::    par_cap_A, par_cap_B, par_rh, par_a, par_sig
-#  real*8 ::    par_lam, par_gam, par_b, par_c, par_delta
-#  real*8 ::    par_mu, par_Qo, par_palp, par_bet, par_alp
-#  real*8 ::    u1, u2, u3, u4
-#  real*8 :: par_bg
-#  real*8 :: par_eta
-#  real*8 :: cutoff
-#  real*8 :: delta_safe
-#
-#  ! My variables
-#  integer :: lsta(2, nat), lstb(nnbrx*nat)
-#  real*8  :: rel(5, nat*nnbrx)
-#  real*8 :: etot, ener_iat, ener, ener2
-#  real*8 :: alat0(3, 3), alat(3, 3), deralat(3, 3)
-#  real*8 :: rxyz0(3, nat), rxyz(3, nat), fxyz(3, nat), alatinv(3, 3)
-#  real*8 :: si1_sj1, si2_sj2, si3_sj3
-#  real(8), intent(out) :: stress(3, 3)
-#  real(8) :: vol
 
-#  !         End my variables
-#  ! EDIP parameters
-#  !         taken from Justo et al., Phys. Rev. B 58, 2539 (1998).
+    # EDIP parameters
+    # taken from Justo et al., Phys. Rev. B 58, 2539 (1998).
 
     par_cap_A = 5.6714030
     par_cap_B = 2.0002804
@@ -247,60 +252,27 @@ def energyandforces_bazant(nat, alat0, rxyz0):
   
     Ha_eV = 27.211399
     Bohr_Ang = 0.529177
-  #   !Do some preparation including the construction of the pair list
-  #   do j = 1, 3
-  #   do i = 1, 3
-  #     alat(i, j) = alat0(i, j)*Bohr_Ang
-  #   end do
-  #   end do
     alat = alat0 * Bohr_Ang
-
-#   do iat = 1, nat
-#     for i in range(nat):
-#     rxyz(1, iat) = rxyz0(1, iat)*Bohr_Ang
-#     rxyz(2, iat) = rxyz0(2, iat)*Bohr_Ang
-#     rxyz(3, iat) = rxyz0(3, iat)*Bohr_Ang
-#   end do
     rxyz = rxyz0 * Bohr_Ang
-    # call back2cell(nat, rxyz, alat)
-
+    
     alatinv = np.linalg.inv(alat)
 
+    fracpos = rxyz @ alatinv
+    fracpos = fracpos - np.floor(fracpos)
+    rxyz = fracpos @ alat
+
     # call nnlist(nat, nnbrx, alat, cutoff, rxyz, lsta, lstb, rel)
-    lsta, lstb, rel = nnlist(nat, nnbrx, alat, cutoff, rxyz)
+    lsta, lstb, rel = nnlist(nnbrx, alat, cutoff, rxyz)
 
-    # print('lsta')
-    # print(lsta)
-    # print('lstb')
-    # print(lstb)
-    # print('rel')
-    # print(rel[0, 0:4])
-    # print(rel[1, 0:4])
-    # print(rel[2, 0:4])
-    # print(rel[3, 0:4])
-    # print(rel[4, 0:4])
-    # call invertalat(alat, alatinv)
-
-    # !Allocation of temporary arrays
-
-    # !          L_x_div_2 = L_x/2.0D0
-    # !          L_y_div_2 = L_y/2.0D0
-    # !          L_z_div_2 = L_z/2.0D0
-
-    # !          do i=1, N_own
-    # fxyz = 0.0
     fxyz = np.zeros((nat, 3))
     ener = 0.0
     ener2 = 0.0
 
     virial = 0.0
-    # virial_xyz(:) = 0.0d0
     virial_xyz = np.zeros(3)
-    # deralat = 0.d0
     deralat = np.zeros((3, 3))
 
-    # !   COMBINE COEFFICIENTS
-
+    # COMBINE COEFFICIENTS
     asqr = par_a * par_a
     Qort = np.sqrt(par_Qo)
     muhalf = par_mu*0.50
@@ -308,22 +280,19 @@ def energyandforces_bazant(nat, alat0, rxyz0):
     bmc = par_b - par_c
     cmbinv = 1.0 / (par_c - par_b)
 
-#   !  --- LEVEL 1: OUTER LOOP OVER ATOMS ---
+    #   --- LEVEL 1: OUTER LOOP OVER ATOMS ---
 
-#   do i = 1, nat
     for i in range(nat):
 
-        #!   RESET COORDINATION AND NEIGHBOR NUMBERS
+        #   RESET COORDINATION AND NEIGHBOR NUMBERS
         ener_iat = 0.0
         Z = 0.0
         n2 = 0 # used to be 1
         n3 = 0 # used to be 1
         nz = 0 # used to be 1
 
-        # !  --- LEVEL 2: LOOP PREPASS OVER PAIRS ---
+        #  --- LEVEL 2: LOOP PREPASS OVER PAIRS ---
 
-        # !            do n=p_nbrs(i), p_nbrs(i+1)-1
-        # !              j = neighbors(n)
         # do n = lsta(1, i), lsta(2, i)
         for n in range(lsta[0, i], lsta[1, i] + 1):
             j = lstb[n]
@@ -331,10 +300,6 @@ def energyandforces_bazant(nat, alat0, rxyz0):
             #   !   PARTS OF TWO-BODY INTERACTION r<par_a
 
             num2[n2] = j
-            #   !                rinv = 1.0/r
-            #   !                dx = dx * rinv
-            #   !                dy = dy * rinv
-            #   !                dz = dz * rinv
             dx = - rel[n, 0]
             dy = - rel[n, 1]
             dz = - rel[n, 2]
@@ -352,24 +317,9 @@ def energyandforces_bazant(nat, alat0, rxyz0):
             s2_r[n2] = r
             n2 = n2 + 1
 
-            # if (n2 > nnbrx):
-            #     print('WARNING1 enlarge nnbrx')
-                # quit()
-
-            # !!Additional part from stefan
-            # !! coordination number calculated with soft cutoff between first and
-            # !! second nearest neighbor
-            # !        if (r.le.2.36d0) then
-            # !        coord_iat=coord_iat+1.d0
-            # !        else if (r.ge.3.83d0) then
-            # !        else
-            # !        xarg=(r-2.36d0)*(1.d0/(3.83d0-2.36d0))
-            # !        coord_iat=coord_iat+(2*xarg+1.d0)*(xarg-1.d0)**2
-            # !        endif
-            # !-----------------------------
-
-            # !   RADIAL PARTS OF THREE-BODY INTERACTION r<par_b
-
+            if (n2 > nnbrx):
+                raise ValueError('enlarge nnbrx')
+            #   RADIAL PARTS OF THREE-BODY INTERACTION r<par_b
             if (r < par_bg):
                 num3[n3] = j
                 rmbinv = 1.0 / (r - par_bg)
@@ -384,12 +334,10 @@ def energyandforces_bazant(nat, alat0, rxyz0):
                 s3_r[n3] = r
                 n3 = n3 + 1
 
-                # !       if(fixZ .eq. 0) then
-                # !Additional part from Stefan
                 if (n3 >= nnbrx):
-                    print('WARNING2 enlarge nnbrx')
+                    raise ValueError('enlarge nnbrx')
 
-                # !   COORDINATION AND NEIGHBOR FUNCTION par_c<r<par_b
+                #   COORDINATION AND NEIGHBOR FUNCTION par_c<r<par_b
 
                 if (r < par_b):
                     if (r < par_c):
@@ -403,75 +351,36 @@ def energyandforces_bazant(nat, alat0, rxyz0):
                         Z = Z + fZ
                         numz[nz] = j
                         sz_df[nz] = fZ * temp1 * den * 3.0 * xinv3 * xinv * cmbinv
-                        # !   df/dr
                         sz_dx[nz] = dx
                         sz_dy[nz] = dy
                         sz_dz[nz] = dz
                         sz_r[nz] = r
                         nz = nz + 1
-                        # !Additional part from Stefan
-                        # if (nz > nnbrx):
-                        #     print('WARNING3 enlarge nnbrx')
-                            # quit()
-                    # end if
-                    #   !  r < par_C
-                # end if
-                # !  r < par_b
-            # end if
-            #   !  fixZ .eq. 0
-            #   !                end if
-            #   !  r < par_bg
-            #   !              end if
-            #   !  rsqr < asqr
-            #   !              end if
-            #   !  dz < par_a
-            #   !              end if
-            #   !  dy < par_a
-            #   !              end if
-            #   !  dVz < par_a
-        # end do
+                        if (nz > nnbrx):
+                            raise ValueError('enlarge nnbrx')
+        #   ZERO ACCUMULATION ARRAY FOR ENVIRONMENT FORCES
 
-        # !            if(fixZ .ne. 0) then
-        # !
-        # !              Z = tricks_Zfix
-        # !              pZ = par_palp*dexp(-par_bet*Z*Z)
-        # !              dp = 0.0
-
-        # !            else
-
-        # !   ZERO ACCUMULATION ARRAY FOR ENVIRONMENT FORCES
-
-        # do nl = 1, nz - 1
-        #   sz_sum(nl) = 0.0d0
-        # end do
         sz_sum[0:nz - 1] = 0.0
 
-        # !   ENVIRONMENT-DEPENDENCE OF PAIR INTERACTION
-
+        #   ENVIRONMENT-DEPENDENCE OF PAIR INTERACTION
         temp0 = par_bet * Z
         pZ = par_palp * np.exp(-temp0 * Z)
-        # !   bond order
+        #   bond order
         dp = -2.0*temp0*pZ
-        # !   derivative of bond order
+        #   derivative of bond order
 
 
-        # !  --- LEVEL 2: LOOP FOR PAIR INTERACTIONS ---
+        #  --- LEVEL 2: LOOP FOR PAIR INTERACTIONS ---
 
-        # do nj = 1, n2 - 1
-        # print('n2', n2)
         for nj in range(n2):
-
             temp0 = s2_t1[nj] - pZ
 
-            # !   two-body energy V2(rij,Z)
-
+            #   two-body energy V2(rij,Z)
             ener_iat = ener_iat + temp0*s2_t0[nj]
-            # print('ener_iat before', ener_iat, nj)
 
             # two-body forces
-
             dV2j = -s2_t0[nj]*(s2_t1[nj]*s2_t2[nj] + temp0*s2_t3[nj])
-            # !   dV2/dr
+            #   dV2/dr
             dV2ijx = dV2j*s2_dx[nj]
             dV2ijy = dV2j*s2_dy[nj]
             dV2ijz = dV2j*s2_dz[nj]
@@ -483,15 +392,14 @@ def energyandforces_bazant(nat, alat0, rxyz0):
             fxyz[j, 1] = fxyz[j, 1] - dV2ijy
             fxyz[j, 2] = fxyz[j, 2] - dV2ijz
 
-            # ! dV2/dr contribution to virial
-
+            #  dV2/dr contribution to virial
             virial_xyz[0] = virial_xyz[0] - s2_r[nj] * (dV2ijx * s2_dx[nj])
             virial_xyz[1] = virial_xyz[1] - s2_r[nj] * (dV2ijy * s2_dy[nj])
             virial_xyz[2] = virial_xyz[2] - s2_r[nj] * (dV2ijz * s2_dz[nj])
             virial = virial - s2_r[nj] * (dV2ijx*s2_dx[nj] + dV2ijy*s2_dy[nj] + dV2ijz*s2_dz[nj])
 
-            #   !Cell gradient part
-            #   !My own implementation
+            #   Cell gradient part
+            #   My own implementation
             si1_sj1 = alatinv[0, 0]*s2_dx[nj] + alatinv[1, 0]*s2_dy[nj] + alatinv[2, 0]*s2_dz[nj]
             si2_sj2 = alatinv[0, 1]*s2_dx[nj] + alatinv[1, 1]*s2_dy[nj] + alatinv[2, 1]*s2_dz[nj]
             si3_sj3 = alatinv[0, 2]*s2_dx[nj] + alatinv[1, 2]*s2_dy[nj] + alatinv[2, 2]*s2_dz[nj]
@@ -505,56 +413,33 @@ def energyandforces_bazant(nat, alat0, rxyz0):
             deralat[1, 2] = deralat[1, 2] - s2_r[nj] * dV2ijz * si2_sj2
             deralat[2, 2] = deralat[2, 2] - s2_r[nj] * dV2ijz * si3_sj3
 
-            #   !              if(fixZ .eq. 0) then
-
-            #   !  --- LEVEL 3: LOOP FOR PAIR COORDINATION FORCES ---
+            #     --- LEVEL 3: LOOP FOR PAIR COORDINATION FORCES ---
 
             dV2dZ = - dp * s2_t0[nj]
-            # do nl = 1, nz - 1
-            #   sz_sum(nl) = sz_sum(nl) + dV2dZ
-            # end do
             sz_sum[0:nz - 1] = sz_sum[0:nz - 1] + dV2dZ
-
-            #   !              end if
-            #   !  fixZ
-        # end do
-        # !Commented out by Stefan
-        # !            if(fixZ .ne. 0) then
-        # !              winv = Qort*dexp(-muhalf*Z)
-        # !              dwinv = 0.0
-        # !              temp0 = dexp(-u4*Z)
-        # !              tau = u1+u2*temp0*(u3-temp0)
-        # !              dtau = 0.0
-        # !            else
-        # !----------------------------------
-
-        # !   COORDINATION-DEPENDENCE OF THREE-BODY INTERACTION
+        #   COORDINATION-DEPENDENCE OF THREE-BODY INTERACTION
 
         winv = Qort * np.exp(-muhalf * Z)
-        # !   inverse width of angular function
+        #   inverse width of angular function
         dwinv = -muhalf*winv
-        # !   its derivative
+        #   its derivative
         temp0 = np.exp(-u4 * Z)
         tau = u1 + u2*temp0*(u3 - temp0)
-        # !   -cosine of angular minimum
+        #   -cosine of angular minimum
         dtau = u5*temp0*(2.0*temp0 - u3)
-        # !   its derivative
-        # !            end if
+        #   its derivative
+        #            end if
 
-        # !  --- LEVEL 2: FIRST LOOP FOR THREE-BODY INTERACTIONS ---
+        #  --- LEVEL 2: FIRST LOOP FOR THREE-BODY INTERACTIONS ---
 
-        # do nj = 1, n3 - 2
-        # print('n3', n3)
         for nj in range(n3 - 1):
-
             j = num3[nj]
 
-            # !  --- LEVEL 3: SECOND LOOP FOR THREE-BODY INTERACTIONS ---
+            #  --- LEVEL 3: SECOND LOOP FOR THREE-BODY INTERACTIONS ---
 
-            # do nk = nj + 1, n3 - 1
             for nk in range(nj + 1, n3):
                 k = num3[nk]
-                # !   angular function h(l,Z)
+                #   angular function h(l,Z)
                 lcos = s3_dx[nj] * s3_dx[nk] + s3_dy[nj] * s3_dy[nk] + s3_dz[nj] * s3_dz[nk]
                 x = (lcos + tau) * winv
                 temp0 = np.exp(-x*x)
@@ -564,18 +449,11 @@ def energyandforces_bazant(nat, alat0, rxyz0):
 
                 dhdl = dHdx*winv
 
-                # !   three-body energy
-
+                #   three-body energy
                 temp1 = s3_g[nj] * s3_g[nk]
-                # print('ener_iat', ener_iat)
                 ener_iat = ener_iat + temp1*H
-                # print('temp1', temp1)
-                # print('H', H)
-                # print('ener_iat', ener_iat)
-                # quit()
 
-                # !   (-) radial force on atom j
-
+                #   (-) radial force on atom j
                 dV3rij = s3_dg[nj] * s3_g[nk] * H
                 dV3rijx = dV3rij*s3_dx[nj]
                 dV3rijy = dV3rij*s3_dy[nj]
@@ -584,8 +462,7 @@ def energyandforces_bazant(nat, alat0, rxyz0):
                 fjy = dV3rijy
                 fjz = dV3rijz
 
-                # !   (-) radial force on atom k
-
+                #   (-) radial force on atom k
                 dV3rik = s3_g[nj]*s3_dg[nk]*H
                 dV3rikx = dV3rik*s3_dx[nk]
                 dV3riky = dV3rik*s3_dy[nk]
@@ -594,8 +471,7 @@ def energyandforces_bazant(nat, alat0, rxyz0):
                 fky = dV3riky
                 fkz = dV3rikz
 
-                # !   (-) angular force on j
-
+                #    (-) angular force on j
                 dV3l = temp1*dhdl
                 dV3ljx = dV3l * (s3_dx[nk] - lcos*s3_dx[nj])*s3_rinv[nj]
                 dV3ljy = dV3l * (s3_dy[nk] - lcos*s3_dy[nj])*s3_rinv[nj]
@@ -604,8 +480,7 @@ def energyandforces_bazant(nat, alat0, rxyz0):
                 fjy = fjy + dV3ljy
                 fjz = fjz + dV3ljz
 
-                # !   (-) angular force on k
-
+                #   (-) angular force on k
                 dV3lkx = dV3l*(s3_dx[nj] - lcos*s3_dx[nk])*s3_rinv[nk]
                 dV3lky = dV3l*(s3_dy[nj] - lcos*s3_dy[nk])*s3_rinv[nk]
                 dV3lkz = dV3l*(s3_dz[nj] - lcos*s3_dz[nk])*s3_rinv[nk]
@@ -613,8 +488,7 @@ def energyandforces_bazant(nat, alat0, rxyz0):
                 fky = fky + dV3lky
                 fkz = fkz + dV3lkz
 
-                # !   apply radial + angular forces to i, j, k
-
+                #   apply radial + angular forces to i, j, k
                 fxyz[j, 0] = fxyz[j, 0] - fjx
                 fxyz[j, 1] = fxyz[j, 1] - fjy
                 fxyz[j, 2] = fxyz[j, 2] - fjz
@@ -625,8 +499,7 @@ def energyandforces_bazant(nat, alat0, rxyz0):
                 fxyz[i, 1] = fxyz[i, 1] + fjy + fky
                 fxyz[i, 2] = fxyz[i, 2] + fjz + fkz
 
-                # !   dV3/dR contributions to virial
-
+                #   dV3/dR contributions to virial
                 virial = virial - s3_r[nj] * (fjx*s3_dx[nj] + fjy*s3_dy[nj] + fjz*s3_dz[nj])
                 virial = virial - s3_r[nk] * (fkx*s3_dx[nk] + fky*s3_dy[nk] + fkz*s3_dz[nk])
                 virial_xyz[0] = virial_xyz[0] - s3_r[nj] * (fjx * s3_dx[nj])
@@ -636,8 +509,8 @@ def energyandforces_bazant(nat, alat0, rxyz0):
                 virial_xyz[1] = virial_xyz[1] - s3_r[nk] * (fky * s3_dy[nk])
                 virial_xyz[2] = virial_xyz[2] - s3_r[nk] * (fkz * s3_dz[nk])
 
-                # !Cell gradient part
-                # !My own implementation
+                # Cell gradient part
+                # My own implementation
                 si1_sj1 = alatinv[0, 0] * s3_dx[nj] + alatinv[1, 0] * s3_dy[nj] + alatinv[2, 0] * s3_dz[nj]
                 si2_sj2 = alatinv[0, 1] * s3_dx[nj] + alatinv[1, 1] * s3_dy[nj] + alatinv[2, 1] * s3_dz[nj]
                 si3_sj3 = alatinv[0, 2] * s3_dx[nj] + alatinv[1, 2] * s3_dy[nj] + alatinv[2, 2] * s3_dz[nj]
@@ -651,8 +524,8 @@ def energyandforces_bazant(nat, alat0, rxyz0):
                 deralat[1, 2] = deralat[1, 2] - s3_r[nj] * fjz * si2_sj2
                 deralat[2, 2] = deralat[2, 2] - s3_r[nj] * fjz * si3_sj3
 
-                # !Cell gradient part
-                # !My own implementation
+                # Cell gradient part
+                # My own implementation
                 si1_sj1 = alatinv[0, 0]*s3_dx[nk] + alatinv[1, 0] * s3_dy[nk] + alatinv[2, 0] * s3_dz[nk]
                 si2_sj2 = alatinv[0, 1]*s3_dx[nk] + alatinv[1, 1] * s3_dy[nk] + alatinv[2, 1] * s3_dz[nk]
                 si3_sj3 = alatinv[0, 2]*s3_dx[nk] + alatinv[1, 2] * s3_dy[nk] + alatinv[2, 2] * s3_dz[nk]
@@ -666,27 +539,18 @@ def energyandforces_bazant(nat, alat0, rxyz0):
                 deralat[1, 2] = deralat[1, 2] - s3_r[nk] * fkz * si2_sj2
                 deralat[2, 2] = deralat[2, 2] - s3_r[nk] * fkz * si3_sj3
 
-                # !                if(fixZ .eq. 0) then
-
-                # !   prefactor for 4-body forces from coordination
+                #   prefactor for 4-body forces from coordination
                 dxdZ = dwinv*(lcos + tau) + winv*dtau
                 dV3dZ = temp1*dHdx*dxdZ
 
-                # !  --- LEVEL 4: LOOP FOR THREE-BODY COORDINATION FORCES ---
-
-                # do nl = 1, nz - 1
-                #   sz_sum(nl) = sz_sum(nl) + dV3dZ
-                # end do
+                #   --- LEVEL 4: LOOP FOR THREE-BODY COORDINATION FORCES ---
                 sz_sum[0:nz - 1] = sz_sum[0:nz - 1] + dV3dZ
-                #   !                end if
-            # end do
-        # end do
+                #                 end if
 
-        # !            if(fixZ .eq. 0) then
+        #           if(fixZ .eq. 0) then
 
-        # !  --- LEVEL 2: LOOP TO APPLY COORDINATION FORCES ---
+        #  --- LEVEL 2: LOOP TO APPLY COORDINATION FORCES ---
 
-        # do nl = 1, nz - 1
         for nl in range(nz - 1):
 
             dEdrl = sz_sum[nl] * sz_df[nl]
@@ -701,15 +565,12 @@ def energyandforces_bazant(nat, alat0, rxyz0):
             fxyz[l, 1] = fxyz[l, 1] - dEdrly
             fxyz[l, 2] = fxyz[l, 2] - dEdrlz
 
-            # !   dE/dZ*dZ/dr contribution to virial
-
+            # dE/dZ*dZ/dr contribution to virial
             virial = virial - sz_r[nl] * (dEdrlx*sz_dx[nl] + dEdrly*sz_dy[nl] + dEdrlz*sz_dz[nl])
             virial_xyz[0] = virial_xyz[0] - sz_r[nl]*(dEdrlx * sz_dx[nl])
             virial_xyz[1] = virial_xyz[1] - sz_r[nl]*(dEdrly * sz_dy[nl])
             virial_xyz[2] = virial_xyz[2] - sz_r[nl]*(dEdrlz * sz_dz[nl])
 
-            # !Cell gradient part
-            # !My own implementation
             si1_sj1 = alatinv[0, 0]*sz_dx[nl] + alatinv[1, 0]*sz_dy[nl] + alatinv[2, 0]*sz_dz[nl]
             si2_sj2 = alatinv[0, 1]*sz_dx[nl] + alatinv[1, 1]*sz_dy[nl] + alatinv[2, 1]*sz_dz[nl]
             si3_sj3 = alatinv[0, 2]*sz_dx[nl] + alatinv[1, 2]*sz_dy[nl] + alatinv[2, 2]*sz_dz[nl]
@@ -723,73 +584,19 @@ def energyandforces_bazant(nat, alat0, rxyz0):
             deralat[1, 2] = deralat[1, 2] - sz_r[nl] * dEdrlz * si2_sj2
             deralat[2, 2] = deralat[2, 2] - sz_r[nl] * dEdrlz * si3_sj3
 
-        # end do
-
-        # !           end if
         ener = ener + ener_iat
         ener2 = ener2 + ener_iat**2
-    # end do
-
-    #   !        call getvol(alat,vol)
-    #   !          if(vol.lt.0.d0) then
-    #   !            write(77,*) nat
-    #   !            write(77,*) alat(:,1)
-    #   !            write(77,*) alat(:,2)
-    #   !            write(77,*) alat(:,3)
-    #   !            do i=1,nat
-    #   !              write(77,*)  rxyz(:,i),"Si"
-    #   !            enddo
-    #   !
-    #   !          endif
 
     etot = ener
-
     etot = etot/Ha_eV
-    # do iat = 1, nat
-    #   fxyz(1, iat) = -fxyz(1, iat)/Ha_eV*Bohr_Ang
-    #   fxyz(2, iat) = -fxyz(2, iat)/Ha_eV*Bohr_Ang
-    #   fxyz(3, iat) = -fxyz(3, iat)/Ha_eV*Bohr_Ang
-    # end do
     fxyz = -fxyz / Ha_eV * Bohr_Ang
-
-    # do j = 1, 3
-    # do i = 1, 3
-    #   deralat(i, j) = deralat(i, j)/Ha_eV*Bohr_Ang
-    # end do
-    # end do
     deralat = deralat / Ha_eV * Bohr_Ang
-
-
-    # ! Stress
-    # ! Transform the forces on the lattice vectors into the stress tensore according to the paper Tomas Bucko and Jurg Hafner
-    # !        do i=1,3
-    # !           tmplat(:,i)=latvec(i,:)
-    # !        enddo
-    # vol = (alat0(1, 1)*alat0(2, 2)*alat0(3, 3) - alat0(1, 1)*alat0(2, 3)*alat0(3, 2) - &
-    #   alat0(1, 2)*alat0(2, 1)*alat0(3, 3) + alat0(1, 2)*alat0(2, 3)*alat0(3, 1) + &
-    #   alat0(1, 3)*alat0(2, 1)*alat0(3, 2) - alat0(1, 3)*alat0(2, 2)*alat0(3, 1))
-
     vol = np.abs(np.linalg.det(alat0))
 
-    # stress=-matmul(deralat,transpose(alat0))/vol
-
+    # formula in fortran form of memory layout
     # stress = - deralat @ alat0.T / vol
     stress = - deralat.T @ alat0 / vol
     return etot, fxyz, stress
-
-#   !stress = stress / Ha_eV *Bohr_Ang**3
-#   !        strten(1) = stress(1,1)
-#   !        strten(2) = stress(2,2)
-#   !        strten(3) = stress(3,3)
-#   !        strten(6) = stress(2,1)
-#   !        strten(5) = stress(3,1)
-#   !        strten(4) = stress(3,2)
-#   !!This is not very clear yet...
-#   !        strten=strten/Ha_eV*Bohr_Ang**3
-# end subroutine energyandforces_bazant
-
-
-# subroutine invertalat(alat, alatinv)
 
 def test():
     from ase.io import read
@@ -822,7 +629,7 @@ def test():
 
 
     t3 = time.time()
-    etot, fxyz, stress = energyandforces_bazant(nat, alat, positions)
+    etot, fxyz, stress = energyandforces_bazant(alat, positions)
     t4 = time.time()
 
     print(etot)
@@ -832,7 +639,7 @@ def test():
     print('difference in stress:', np.linalg.norm(stress - stress1))
 
     t5 = time.time()
-    etot, fxyz, stress = energyandforces_bazant(nat, alat, positions)
+    etot, fxyz, stress = energyandforces_bazant(alat, positions)
     t6 = time.time()
 
     print(etot)
