@@ -626,6 +626,7 @@ def test():
 
         return etot, fxyz, stress
     
+    np.random.seed(42)
     sigma_rattle = 1e-1
 
     tol = 1e-12
@@ -635,7 +636,6 @@ def test():
     print('running tests')
     # print('0 %', end='')
     for i in range(ntest):
-        rattle(atoms, sigma_rattle)
         t0 = time.time()
         e_fortran, f_fortran, s_fortran = bazant_fortran_function(atoms)
         lat = atoms.get_cell(complete=True)
@@ -648,14 +648,15 @@ def test():
             t_fortran += t1 - t0
             t_python += t2 - t1
         if not np.abs(e_fortran - e_python) < tol:
-            print("energy difference", e_fortran - e_python, " is larger than tolerance")
+            print("energy difference", e_fortran - e_python, " is larger than tolerance in iteration ", i)
             raise ValueError("energy difference is larger than tolerance")
         if not np.max(np.abs(f_fortran - f_python)) < tol:
-            print("force difference", np.max(np.abs(f_fortran - f_python)), " is larger than tolerance")
+            print("force difference", np.max(np.abs(f_fortran - f_python)), " is larger than tolerance in iteration ", i)
             raise ValueError("force difference is larger than tolerance")
         if not np.max(np.abs(s_fortran - s_python)) < tol:
-            print("stress difference", np.max(np.abs(s_fortran - s_python)), " is larger than tolerance")
+            print("stress difference", np.max(np.abs(s_fortran - s_python)), " is larger than tolerance in iteration ", i)
             raise ValueError("stress difference is larger than tolerance")
+        rattle(atoms, sigma_rattle)
     print("Tests passed")
     print("Time for fortran function", t_fortran / (ntest - 1))
     print("Time for python function ", t_python / (ntest - 1))
