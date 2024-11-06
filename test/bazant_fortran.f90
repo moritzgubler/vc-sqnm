@@ -194,8 +194,8 @@
     u4 = 0.66d0
     !end parameters
   
-    Ha_eV = 27.211399d0
-    Bohr_Ang = 0.529177d0
+    Ha_eV = 27.211386024367243d0
+    Bohr_Ang = 0.5291772105638411d0
     !Do some preparation including the construction of the pair list
     do j = 1, 3
     do i = 1, 3
