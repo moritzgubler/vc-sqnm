@@ -26,7 +26,6 @@ def nnlist(nnbrx, alat, cutoff, rxyz):
     else:  #! periodic boundary conditions
         eigval, eigvec = np.linalg.eigh(alat.T @ alat)
         ixyzmax = int(np.sqrt(1.0 / eigval[0]) * cutoff) + 1
-        print(np.sqrt(1.0 / eigval[0]) * cutoff, np.sqrt(1.0 / eigval[1]) * cutoff, np.sqrt(1.0 / eigval[2]) * cutoff)
     cutoff2 = cutoff * cutoff
 
     ind = 0
@@ -250,10 +249,10 @@ def energyandforces_bazant(alat0, rxyz0):
     u4 = 0.66
   #   !end parameters
   
-    Ha_eV = 27.211399
-    Bohr_Ang = 0.529177
-    alat = alat0 * Bohr_Ang
-    rxyz = rxyz0 * Bohr_Ang
+    # Ha_eV = 27.211399
+    # Bohr_Ang = 0.529177
+    alat = alat0 # * Bohr_Ang
+    rxyz = rxyz0 # * Bohr_Ang
     
     alatinv = np.linalg.inv(alat)
 
@@ -588,9 +587,9 @@ def energyandforces_bazant(alat0, rxyz0):
         ener2 = ener2 + ener_iat**2
 
     etot = ener
-    etot = etot/Ha_eV
-    fxyz = -fxyz / Ha_eV * Bohr_Ang
-    deralat = deralat / Ha_eV * Bohr_Ang
+    # etot = etot/Ha_eV
+    fxyz = -fxyz # / Ha_eV * Bohr_Ang
+    deralat = deralat # / Ha_eV * Bohr_Ang
     vol = np.abs(np.linalg.det(alat0))
 
     # formula in fortran form of memory layout
@@ -605,49 +604,63 @@ def test():
     import time
 
     atoms = read('test64.ascii')
-    nat = len(atoms)
 
-    atoms.rattle(0.01)
+    def rattle(atoms, sigma):
+        atoms.rattle(sigma)
+        atoms.set_cell(atoms.get_cell() + np.random.normal(0, sigma, (3, 3)))
 
-    import ase.units as units
+    def bazant_fortran_function(atoms):
+        from ase.units import Bohr, Hartree
+        alat = atoms.get_cell().T
+        positions = atoms.get_positions().T
 
-    alat = atoms.get_cell().T
-    positions = atoms.get_positions().T
+        # convert to atomic units
+        alat /= Bohr
+        positions /= Bohr
 
-    # convert to atomic units
-    alat /= units.Bohr
-    positions /= units.Bohr
+        etot, fxyz, stress = bf.energyandforces_bazant(alat, positions)
 
-    t1 = time.time()
-    etot1, fxyz1, stress1 = bf.energyandforces_bazant(alat, positions)
-    t2 = time.time()
+        etot = etot *  Hartree
+        fxyz = fxyz.T * Hartree / Bohr
+        stress = stress * Hartree / Bohr**3
 
-    print(etot1)
+        return etot, fxyz, stress
+    
+    sigma_rattle = 1e-1
 
-    alat = alat.T
-    positions = positions.T
-
-
-    t3 = time.time()
-    etot, fxyz, stress = energyandforces_bazant(alat, positions)
-    t4 = time.time()
-
-    print(etot)
-
-    print("difference in energy:", etot - etot1)
-    print("difference in forces:", np.linalg.norm(fxyz - fxyz1.T))
-    print('difference in stress:', np.linalg.norm(stress - stress1))
-
-    t5 = time.time()
-    etot, fxyz, stress = energyandforces_bazant(alat, positions)
-    t6 = time.time()
-
-    print(etot)
-
-    print('Fortran time:', t2 - t1)
-    print('Python time:', t4 - t3)
-    print('Python time (compiled):', t6 - t5)
-    print('Speedup:', (t4 - t3) / (t2 - t1), (t6 - t5) / (t2 - t1))
+    tol = 1e-12
+    ntest = 10
+    t_fortran = 0.0
+    t_python = 0.0
+    print('running tests')
+    # print('0 %', end='')
+    for i in range(ntest):
+        rattle(atoms, sigma_rattle)
+        t0 = time.time()
+        e_fortran, f_fortran, s_fortran = bazant_fortran_function(atoms)
+        lat = atoms.get_cell(complete=True)
+        lat = np.array(lat[:], dtype=np.float64)
+        pos = np.array(atoms.get_positions())
+        t1 = time.time()
+        e_python, f_python, s_python = energyandforces_bazant(lat, pos)
+        t2 = time.time()
+        if i > 0:
+            t_fortran += t1 - t0
+            t_python += t2 - t1
+        if not np.abs(e_fortran - e_python) < tol:
+            print("energy difference", e_fortran - e_python, " is larger than tolerance")
+            raise ValueError("energy difference is larger than tolerance")
+        if not np.max(np.abs(f_fortran - f_python)) < tol:
+            print("force difference", np.max(np.abs(f_fortran - f_python)), " is larger than tolerance")
+            raise ValueError("force difference is larger than tolerance")
+        if not np.max(np.abs(s_fortran - s_python)) < tol:
+            print("stress difference", np.max(np.abs(s_fortran - s_python)), " is larger than tolerance")
+            raise ValueError("stress difference is larger than tolerance")
+    print("Tests passed")
+    print("Time for fortran function", t_fortran / (ntest - 1))
+    print("Time for python function ", t_python / (ntest - 1))
+    print("Speedup", t_python / t_fortran)
+    
 
 if __name__ == '__main__':
     test()
