@@ -20,18 +20,14 @@ def nnlist(nat, nnbrx, alat, cutoff, rxyz):
     if np.abs(np.linalg.det(alat)) < 1e-10:
         ixyzmax = 0
     else:  #! periodic boundary conditions
-        alatalat = np.zeros((3, 3))
-        for i in range(3):
-            for j in range(3):
-                alatalat[i, j] = alat[0, i] * alat[0, j] + alat[1, i] * alat[1, j] + alat[2, i] * alat[2, j]
+        # alatalat = np.zeros((3, 3))
+        # for i in range(3):
+        #     for j in range(3):
+        #         alatalat[i, j] = alat[0, i] * alat[0, j] + alat[1, i] * alat[1, j] + alat[2, i] * alat[2, j]
 
-    #   call dsyev('N', 'L', 3, alatalat, 3, eigalat, workalat, nwork, info)
-    #   !   write(*,*) !  'alat !  EVals',eigalat !  write(*,*) 'ixyzmax',int(sqrt(1.d0/eigalat(1))*radius_cutoff)
-    #   ! ixyzmax determines over how many periodiv images one has to search to fill the sphere with atoms
-    #   ixyzmax = int(sqrt(1.d0/eigalat(1))*cutoff) + 1
-    # end if
-        eigval, eigvec = np.linalg.eigh(alatalat)
+        eigval, eigvec = np.linalg.eigh(alat.T @ alat)
         ixyzmax = int(np.sqrt(1.0 / eigval[0]) * cutoff) + 1
+        print(np.sqrt(1.0 / eigval[0]) * cutoff, np.sqrt(1.0 / eigval[1]) * cutoff, np.sqrt(1.0 / eigval[2]) * cutoff)
     cutoff2 = cutoff * cutoff
 
 #   !  write(*,*) 'ixyzmax ',ixyzmax
@@ -39,7 +35,7 @@ def nnlist(nat, nnbrx, alat, cutoff, rxyz):
     ind = 0
     lsta = np.zeros((2, nat), dtype=np.int32)
     lstb = np.zeros(nnbrx * nat, dtype=np.int32)
-    rel = np.zeros((5, nat * nnbrx))
+    rel = np.zeros((nat * nnbrx, 5))
 #   do iat = 1, nat
     for iat in range(nat):
         lsta[0, iat] = ind
@@ -53,26 +49,26 @@ def nnlist(nat, nnbrx, alat, cutoff, rxyz):
             for ix in range(-ixyzmax, ixyzmax + 1):
                for iy in range(-ixyzmax, ixyzmax + 1):
                    for iz in range(-ixyzmax, ixyzmax + 1):
-                        xj = rxyz[0, jat] + ix * alat[0, 0] + iy*alat[0, 1] + iz*alat[0, 2]
-                        yj = rxyz[1, jat] + ix * alat[1, 0] + iy*alat[1, 1] + iz*alat[1, 2]
-                        zj = rxyz[2, jat] + ix * alat[2, 0] + iy*alat[2, 1] + iz*alat[2, 2]
-                        relx = xj - rxyz[0, iat]
-                        rely = yj - rxyz[1, iat]
-                        relz = zj - rxyz[2, iat]
-                        dist2 = relx**2 + rely**2 + relz**2
+                        xj = rxyz[jat, 0] + ix * alat[0, 0] + iy*alat[1, 0] + iz*alat[2, 0]
+                        yj = rxyz[jat, 1] + ix * alat[0, 1] + iy*alat[1, 1] + iz*alat[2, 1]
+                        zj = rxyz[jat, 2] + ix * alat[0, 2] + iy*alat[1, 2] + iz*alat[2, 2]
+                        relx = xj - rxyz[iat, 0]
+                        rely = yj - rxyz[iat, 1]
+                        relz = zj - rxyz[iat, 2]
+                        dist2 = relx * relx + rely * rely + relz * relz
 
                         if dist2 > 1.0e-20 and dist2 <= cutoff2:
-                            if (ind >= nnbrx*nat):
-                                print('enlarge nnbrx')
-                                # quit()
+                            # if (ind >= nnbrx*nat):
+                            #     print('enlarge nnbrx')
+                            #     # quit()
                             lstb[ind] = jat
                             tt = np.sqrt(dist2)
                             ttinv = 1.0 / tt
-                            rel[0, ind] = relx*ttinv
-                            rel[1, ind] = rely*ttinv
-                            rel[2, ind] = relz*ttinv
-                            rel[3, ind] = tt
-                            rel[4, ind] = ttinv
+                            rel[ind, 0] = relx*ttinv
+                            rel[ind, 1] = rely*ttinv
+                            rel[ind, 2] = relz*ttinv
+                            rel[ind, 3] = tt
+                            rel[ind, 4] = ttinv
                             ind = ind + 1
     #         end if
     #       end do
@@ -293,7 +289,7 @@ def energyandforces_bazant(nat, alat0, rxyz0):
 
     # !          do i=1, N_own
     # fxyz = 0.0
-    fxyz = np.zeros((3, nat))
+    fxyz = np.zeros((nat, 3))
     ener = 0.0
     ener2 = 0.0
 
@@ -339,11 +335,11 @@ def energyandforces_bazant(nat, alat0, rxyz0):
             #   !                dx = dx * rinv
             #   !                dy = dy * rinv
             #   !                dz = dz * rinv
-            dx = -rel[0, n]
-            dy = -rel[1, n]
-            dz = -rel[2, n]
-            r = rel[3, n]
-            rinv = rel[4, n]
+            dx = - rel[n, 0]
+            dy = - rel[n, 1]
+            dz = - rel[n, 2]
+            r  =   rel[n, 3]
+            rinv = rel[n, 4]
 
             rmainv = 1.0 / (r - par_a)
             s2_t0[n2] = par_cap_A * np.exp(par_sig*rmainv)
@@ -356,8 +352,8 @@ def energyandforces_bazant(nat, alat0, rxyz0):
             s2_r[n2] = r
             n2 = n2 + 1
 
-            if (n2 > nnbrx):
-                print('WARNING1 enlarge nnbrx')
+            # if (n2 > nnbrx):
+            #     print('WARNING1 enlarge nnbrx')
                 # quit()
 
             # !!Additional part from stefan
@@ -414,8 +410,8 @@ def energyandforces_bazant(nat, alat0, rxyz0):
                         sz_r[nz] = r
                         nz = nz + 1
                         # !Additional part from Stefan
-                        if (nz > nnbrx):
-                            print('WARNING3 enlarge nnbrx')
+                        # if (nz > nnbrx):
+                        #     print('WARNING3 enlarge nnbrx')
                             # quit()
                     # end if
                     #   !  r < par_C
@@ -479,13 +475,13 @@ def energyandforces_bazant(nat, alat0, rxyz0):
             dV2ijx = dV2j*s2_dx[nj]
             dV2ijy = dV2j*s2_dy[nj]
             dV2ijz = dV2j*s2_dz[nj]
-            fxyz[0, i] = fxyz[0, i] + dV2ijx
-            fxyz[1, i] = fxyz[1, i] + dV2ijy
-            fxyz[2, i] = fxyz[2, i] + dV2ijz
+            fxyz[i, 0] = fxyz[i, 0] + dV2ijx
+            fxyz[i, 1] = fxyz[i, 1] + dV2ijy
+            fxyz[i, 2] = fxyz[i, 2] + dV2ijz
             j = num2[nj]
-            fxyz[0, j] = fxyz[0, j] - dV2ijx
-            fxyz[1, j] = fxyz[1, j] - dV2ijy
-            fxyz[2, j] = fxyz[2, j] - dV2ijz
+            fxyz[j, 0] = fxyz[j, 0] - dV2ijx
+            fxyz[j, 1] = fxyz[j, 1] - dV2ijy
+            fxyz[j, 2] = fxyz[j, 2] - dV2ijz
 
             # ! dV2/dr contribution to virial
 
@@ -496,17 +492,17 @@ def energyandforces_bazant(nat, alat0, rxyz0):
 
             #   !Cell gradient part
             #   !My own implementation
-            si1_sj1 = alatinv[0, 0]*s2_dx[nj] + alatinv[0, 1]*s2_dy[nj] + alatinv[0, 2]*s2_dz[nj]
-            si2_sj2 = alatinv[1, 0]*s2_dx[nj] + alatinv[1, 1]*s2_dy[nj] + alatinv[1, 2]*s2_dz[nj]
-            si3_sj3 = alatinv[2, 0]*s2_dx[nj] + alatinv[2, 1]*s2_dy[nj] + alatinv[2, 2]*s2_dz[nj]
+            si1_sj1 = alatinv[0, 0]*s2_dx[nj] + alatinv[1, 0]*s2_dy[nj] + alatinv[2, 0]*s2_dz[nj]
+            si2_sj2 = alatinv[0, 1]*s2_dx[nj] + alatinv[1, 1]*s2_dy[nj] + alatinv[2, 1]*s2_dz[nj]
+            si3_sj3 = alatinv[0, 2]*s2_dx[nj] + alatinv[1, 2]*s2_dy[nj] + alatinv[2, 2]*s2_dz[nj]
             deralat[0, 0] = deralat[0, 0] - s2_r[nj] * dV2ijx * si1_sj1
-            deralat[0, 1] = deralat[0, 1] - s2_r[nj] * dV2ijx * si2_sj2
-            deralat[0, 2] = deralat[0, 2] - s2_r[nj] * dV2ijx * si3_sj3
-            deralat[1, 0] = deralat[1, 0] - s2_r[nj] * dV2ijy * si1_sj1
+            deralat[1, 0] = deralat[1, 0] - s2_r[nj] * dV2ijx * si2_sj2
+            deralat[2, 0] = deralat[2, 0] - s2_r[nj] * dV2ijx * si3_sj3
+            deralat[0, 1] = deralat[0, 1] - s2_r[nj] * dV2ijy * si1_sj1
             deralat[1, 1] = deralat[1, 1] - s2_r[nj] * dV2ijy * si2_sj2
-            deralat[1, 2] = deralat[1, 2] - s2_r[nj] * dV2ijy * si3_sj3
-            deralat[2, 0] = deralat[2, 0] - s2_r[nj] * dV2ijz * si1_sj1
-            deralat[2, 1] = deralat[2, 1] - s2_r[nj] * dV2ijz * si2_sj2
+            deralat[2, 1] = deralat[2, 1] - s2_r[nj] * dV2ijy * si3_sj3
+            deralat[0, 2] = deralat[0, 2] - s2_r[nj] * dV2ijz * si1_sj1
+            deralat[1, 2] = deralat[1, 2] - s2_r[nj] * dV2ijz * si2_sj2
             deralat[2, 2] = deralat[2, 2] - s2_r[nj] * dV2ijz * si3_sj3
 
             #   !              if(fixZ .eq. 0) then
@@ -619,15 +615,15 @@ def energyandforces_bazant(nat, alat0, rxyz0):
 
                 # !   apply radial + angular forces to i, j, k
 
-                fxyz[0, j] = fxyz[0, j] - fjx
-                fxyz[1, j] = fxyz[1, j] - fjy
-                fxyz[2, j] = fxyz[2, j] - fjz
-                fxyz[0, k] = fxyz[0, k] - fkx
-                fxyz[1, k] = fxyz[1, k] - fky
-                fxyz[2, k] = fxyz[2, k] - fkz
-                fxyz[0, i] = fxyz[0, i] + fjx + fkx
-                fxyz[1, i] = fxyz[1, i] + fjy + fky
-                fxyz[2, i] = fxyz[2, i] + fjz + fkz
+                fxyz[j, 0] = fxyz[j, 0] - fjx
+                fxyz[j, 1] = fxyz[j, 1] - fjy
+                fxyz[j, 2] = fxyz[j, 2] - fjz
+                fxyz[k, 0] = fxyz[k, 0] - fkx
+                fxyz[k, 1] = fxyz[k, 1] - fky
+                fxyz[k, 2] = fxyz[k, 2] - fkz
+                fxyz[i, 0] = fxyz[i, 0] + fjx + fkx
+                fxyz[i, 1] = fxyz[i, 1] + fjy + fky
+                fxyz[i, 2] = fxyz[i, 2] + fjz + fkz
 
                 # !   dV3/dR contributions to virial
 
@@ -642,32 +638,32 @@ def energyandforces_bazant(nat, alat0, rxyz0):
 
                 # !Cell gradient part
                 # !My own implementation
-                si1_sj1 = alatinv[0, 0] * s3_dx[nj] + alatinv[0, 1] * s3_dy[nj] + alatinv[0, 2] * s3_dz[nj]
-                si2_sj2 = alatinv[1, 0] * s3_dx[nj] + alatinv[1, 1] * s3_dy[nj] + alatinv[1, 2] * s3_dz[nj]
-                si3_sj3 = alatinv[2, 0] * s3_dx[nj] + alatinv[2, 1] * s3_dy[nj] + alatinv[2, 2] * s3_dz[nj]
+                si1_sj1 = alatinv[0, 0] * s3_dx[nj] + alatinv[1, 0] * s3_dy[nj] + alatinv[2, 0] * s3_dz[nj]
+                si2_sj2 = alatinv[0, 1] * s3_dx[nj] + alatinv[1, 1] * s3_dy[nj] + alatinv[2, 1] * s3_dz[nj]
+                si3_sj3 = alatinv[0, 2] * s3_dx[nj] + alatinv[1, 2] * s3_dy[nj] + alatinv[2, 2] * s3_dz[nj]
                 deralat[0, 0] = deralat[0, 0] - s3_r[nj] * fjx * si1_sj1
-                deralat[0, 1] = deralat[0, 1] - s3_r[nj] * fjx * si2_sj2
-                deralat[0, 2] = deralat[0, 2] - s3_r[nj] * fjx * si3_sj3
-                deralat[1, 0] = deralat[1, 0] - s3_r[nj] * fjy * si1_sj1
+                deralat[1, 0] = deralat[1, 0] - s3_r[nj] * fjx * si2_sj2
+                deralat[2, 0] = deralat[2, 0] - s3_r[nj] * fjx * si3_sj3
+                deralat[0, 1] = deralat[0, 1] - s3_r[nj] * fjy * si1_sj1
                 deralat[1, 1] = deralat[1, 1] - s3_r[nj] * fjy * si2_sj2
-                deralat[1, 2] = deralat[1, 2] - s3_r[nj] * fjy * si3_sj3
-                deralat[2, 0] = deralat[2, 0] - s3_r[nj] * fjz * si1_sj1
-                deralat[2, 1] = deralat[2, 1] - s3_r[nj] * fjz * si2_sj2
+                deralat[2, 1] = deralat[2, 1] - s3_r[nj] * fjy * si3_sj3
+                deralat[0, 2] = deralat[0, 2] - s3_r[nj] * fjz * si1_sj1
+                deralat[1, 2] = deralat[1, 2] - s3_r[nj] * fjz * si2_sj2
                 deralat[2, 2] = deralat[2, 2] - s3_r[nj] * fjz * si3_sj3
 
                 # !Cell gradient part
                 # !My own implementation
-                si1_sj1 = alatinv[0, 0]*s3_dx[nk] + alatinv[0, 1] * s3_dy[nk] + alatinv[0, 2] * s3_dz[nk]
-                si2_sj2 = alatinv[1, 0]*s3_dx[nk] + alatinv[1, 1] * s3_dy[nk] + alatinv[1, 2] * s3_dz[nk]
-                si3_sj3 = alatinv[2, 0]*s3_dx[nk] + alatinv[2, 1] * s3_dy[nk] + alatinv[2, 2] * s3_dz[nk]
+                si1_sj1 = alatinv[0, 0]*s3_dx[nk] + alatinv[1, 0] * s3_dy[nk] + alatinv[2, 0] * s3_dz[nk]
+                si2_sj2 = alatinv[0, 1]*s3_dx[nk] + alatinv[1, 1] * s3_dy[nk] + alatinv[2, 1] * s3_dz[nk]
+                si3_sj3 = alatinv[0, 2]*s3_dx[nk] + alatinv[1, 2] * s3_dy[nk] + alatinv[2, 2] * s3_dz[nk]
                 deralat[0, 0] = deralat[0, 0] - s3_r[nk] * fkx * si1_sj1
-                deralat[0, 1] = deralat[0, 1] - s3_r[nk] * fkx * si2_sj2
-                deralat[0, 2] = deralat[0, 2] - s3_r[nk] * fkx * si3_sj3
-                deralat[1, 0] = deralat[1, 0] - s3_r[nk] * fky * si1_sj1
+                deralat[1, 0] = deralat[1, 0] - s3_r[nk] * fkx * si2_sj2
+                deralat[2, 0] = deralat[2, 0] - s3_r[nk] * fkx * si3_sj3
+                deralat[0, 1] = deralat[0, 1] - s3_r[nk] * fky * si1_sj1
                 deralat[1, 1] = deralat[1, 1] - s3_r[nk] * fky * si2_sj2
-                deralat[1, 2] = deralat[1, 2] - s3_r[nk] * fky * si3_sj3
-                deralat[2, 0] = deralat[2, 0] - s3_r[nk] * fkz * si1_sj1
-                deralat[2, 1] = deralat[2, 1] - s3_r[nk] * fkz * si2_sj2
+                deralat[2, 1] = deralat[2, 1] - s3_r[nk] * fky * si3_sj3
+                deralat[0, 2] = deralat[0, 2] - s3_r[nk] * fkz * si1_sj1
+                deralat[1, 2] = deralat[1, 2] - s3_r[nk] * fkz * si2_sj2
                 deralat[2, 2] = deralat[2, 2] - s3_r[nk] * fkz * si3_sj3
 
                 # !                if(fixZ .eq. 0) then
@@ -697,13 +693,13 @@ def energyandforces_bazant(nat, alat0, rxyz0):
             dEdrlx = dEdrl*sz_dx[nl]
             dEdrly = dEdrl*sz_dy[nl]
             dEdrlz = dEdrl*sz_dz[nl]
-            fxyz[0, i] = fxyz[0, i] + dEdrlx
-            fxyz[1, i] = fxyz[1, i] + dEdrly
-            fxyz[2, i] = fxyz[2, i] + dEdrlz
+            fxyz[i, 0] = fxyz[i, 0] + dEdrlx
+            fxyz[i, 1] = fxyz[i, 1] + dEdrly
+            fxyz[i, 2] = fxyz[i, 2] + dEdrlz
             l = numz[nl]
-            fxyz[0, l] = fxyz[0, l] - dEdrlx
-            fxyz[1, l] = fxyz[1, l] - dEdrly
-            fxyz[2, l] = fxyz[2, l] - dEdrlz
+            fxyz[l, 0] = fxyz[l, 0] - dEdrlx
+            fxyz[l, 1] = fxyz[l, 1] - dEdrly
+            fxyz[l, 2] = fxyz[l, 2] - dEdrlz
 
             # !   dE/dZ*dZ/dr contribution to virial
 
@@ -714,17 +710,17 @@ def energyandforces_bazant(nat, alat0, rxyz0):
 
             # !Cell gradient part
             # !My own implementation
-            si1_sj1 = alatinv[0, 0]*sz_dx[nl] + alatinv[0, 1]*sz_dy[nl] + alatinv[0, 2]*sz_dz[nl]
-            si2_sj2 = alatinv[1, 0]*sz_dx[nl] + alatinv[1, 1]*sz_dy[nl] + alatinv[1, 2]*sz_dz[nl]
-            si3_sj3 = alatinv[2, 0]*sz_dx[nl] + alatinv[2, 1]*sz_dy[nl] + alatinv[2, 2]*sz_dz[nl]
+            si1_sj1 = alatinv[0, 0]*sz_dx[nl] + alatinv[1, 0]*sz_dy[nl] + alatinv[2, 0]*sz_dz[nl]
+            si2_sj2 = alatinv[0, 1]*sz_dx[nl] + alatinv[1, 1]*sz_dy[nl] + alatinv[2, 1]*sz_dz[nl]
+            si3_sj3 = alatinv[0, 2]*sz_dx[nl] + alatinv[1, 2]*sz_dy[nl] + alatinv[2, 2]*sz_dz[nl]
             deralat[0, 0] = deralat[0, 0] - sz_r[nl] * dEdrlx * si1_sj1
-            deralat[0, 1] = deralat[0, 1] - sz_r[nl] * dEdrlx * si2_sj2
-            deralat[0, 2] = deralat[0, 2] - sz_r[nl] * dEdrlx * si3_sj3
-            deralat[1, 0] = deralat[1, 0] - sz_r[nl] * dEdrly * si1_sj1
+            deralat[1, 0] = deralat[1, 0] - sz_r[nl] * dEdrlx * si2_sj2
+            deralat[2, 0] = deralat[2, 0] - sz_r[nl] * dEdrlx * si3_sj3
+            deralat[0, 1] = deralat[0, 1] - sz_r[nl] * dEdrly * si1_sj1
             deralat[1, 1] = deralat[1, 1] - sz_r[nl] * dEdrly * si2_sj2
-            deralat[1, 2] = deralat[1, 2] - sz_r[nl] * dEdrly * si3_sj3
-            deralat[2, 0] = deralat[2, 0] - sz_r[nl] * dEdrlz * si1_sj1
-            deralat[2, 1] = deralat[2, 1] - sz_r[nl] * dEdrlz * si2_sj2
+            deralat[2, 1] = deralat[2, 1] - sz_r[nl] * dEdrly * si3_sj3
+            deralat[0, 2] = deralat[0, 2] - sz_r[nl] * dEdrlz * si1_sj1
+            deralat[1, 2] = deralat[1, 2] - sz_r[nl] * dEdrlz * si2_sj2
             deralat[2, 2] = deralat[2, 2] - sz_r[nl] * dEdrlz * si3_sj3
 
         # end do
@@ -777,8 +773,9 @@ def energyandforces_bazant(nat, alat0, rxyz0):
 
     # stress=-matmul(deralat,transpose(alat0))/vol
 
-    stress = - deralat @ alat0.T / vol
-    return etot, fxyz, deralat, stress
+    # stress = - deralat @ alat0.T / vol
+    stress = - deralat.T @ alat0 / vol
+    return etot, fxyz, stress
 
 #   !stress = stress / Ha_eV *Bohr_Ang**3
 #   !        strten(1) = stress(1,1)
@@ -815,23 +812,27 @@ def test():
     positions /= units.Bohr
 
     t1 = time.time()
-    etot1, fxyz1, deralat1 = bf.energyandforces_bazant(alat, positions)
+    etot1, fxyz1, stress1 = bf.energyandforces_bazant(alat, positions)
     t2 = time.time()
 
     print(etot1)
 
+    alat = alat.T
+    positions = positions.T
+
+
     t3 = time.time()
-    etot, fxyz, deralat, stress = energyandforces_bazant(nat, alat, positions)
+    etot, fxyz, stress = energyandforces_bazant(nat, alat, positions)
     t4 = time.time()
 
     print(etot)
 
     print("difference in energy:", etot - etot1)
-    print("difference in forces:", np.linalg.norm(fxyz - fxyz1))
-    print('difference in lattice derivatives:', np.linalg.norm(deralat - deralat1))
+    print("difference in forces:", np.linalg.norm(fxyz - fxyz1.T))
+    print('difference in stress:', np.linalg.norm(stress - stress1))
 
     t5 = time.time()
-    etot, fxyz, deralat, stress = energyandforces_bazant(nat, alat, positions)
+    etot, fxyz, stress = energyandforces_bazant(nat, alat, positions)
     t6 = time.time()
 
     print(etot)
