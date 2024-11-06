@@ -1,5 +1,5 @@
   
-  subroutine energyandforces_bazant(nat, alat0, rxyz0, etot, fxyz, deralat) !bind ( C, name="energyandforces_bazant" )
+  subroutine energyandforces_bazant(nat, alat0, rxyz0, etot, fxyz, stress) !bind ( C, name="energyandforces_bazant" )
   !use iso_c_binding
     !   forces-edip.f
     !   -------------
@@ -154,13 +154,13 @@
     real(8) :: ener_iat, ener, ener2
     real*8, intent(in) :: alat0(3, 3)
     real(8) :: alat(3, 3)
-    real(8), intent(out) :: deralat(3, 3)
+    real(8) :: deralat(3, 3)
     real*8, intent(in) :: rxyz0(3, nat)
     real(8) :: rxyz(3, nat)
     real(8), intent(out) :: fxyz(3, nat)
     real(8) :: alatinv(3, 3)
     real*8 :: si1_sj1, si2_sj2, si3_sj3
-    real(8) :: stress(3, 3)
+    real(8), intent(out) :: stress(3, 3)
     real(8) :: vol
 
 
