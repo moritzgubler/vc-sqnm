@@ -137,12 +137,18 @@ class SQNM:
                 self.estimate_step_size = False
             else:
                 # calculate and adjust gainratio
-                self.gainratio = (f_of_x - self.prev_f_of_x) / ( .5 * self.np.dot(self.dir_of_descent, self.prev_df_dx) )
-                if not self.estimate_step_size:
-                    if self.gainratio < .5:
-                        self.alpha = max(self.alpha_min, self.alpha * .65)
-                    if self.gainratio > 1.05:
-                        self.alpha *= 1.05
+                # self.gainratio = (f_of_x - self.prev_f_of_x) / ( .5 * self.np.dot(self.dir_of_descent, self.prev_df_dx) )
+                # if not self.estimate_step_size:
+                #     if self.gainratio < .5:
+                #         self.alpha = max(self.alpha_min, self.alpha * .65)
+                #     if self.gainratio > 1.05:
+                #         self.alpha *= 1.05
+                cosaangle = self.np.dot(self.prev_df_dx, df_dx) / (self.np.linalg.norm(self.prev_df_dx) * self.np.linalg.norm(df_dx))
+                if cosaangle > 0.5:
+                    self.alpha *= 1.05
+                else:
+                    self.alpha = max(self.alpha_min, self.alpha * .55)
+
 
             # calculate overlap matrix of basis
             self.s_evec[:self.nhist, :self.nhist] = self.xlist.normalizedDiffList[:, :self.nhist].T \
