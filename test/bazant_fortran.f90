@@ -210,6 +210,7 @@
     end do
     call back2cell(nat, rxyz, alat)
     call nnlist(nat, nnbrx, alat, cutoff, rxyz, lsta, lstb, rel)
+    ! print*, lstb
     call invertalat(alat, alatinv)
   
     !Allocation of temporary arrays
@@ -409,6 +410,8 @@
         fxyz(1, j) = fxyz(1, j) - dV2ijx
         fxyz(2, j) = fxyz(2, j) - dV2ijy
         fxyz(3, j) = fxyz(3, j) - dV2ijz
+        ! print*, 'fxyz', fxyz(1, i), fxyz(2, i), fxyz(3, i)
+        ! return
   
         !   dV2/dr contribution to virial
   
@@ -545,6 +548,8 @@
           fxyz(1, i) = fxyz(1, i) + fjx + fkx
           fxyz(2, i) = fxyz(2, i) + fjy + fky
           fxyz(3, i) = fxyz(3, i) + fjz + fkz
+        !   print*, 'fxyz', fxyz(1, i), fxyz(2, i), fxyz(3, i)
+        !   return
   
           !   dV3/dR contributions to virial
   
@@ -606,6 +611,7 @@
   
       !  --- LEVEL 2: LOOP TO APPLY COORDINATION FORCES ---
   
+    ! print*, 'nz', nz
       do nl = 1, nz - 1
   
         dEdrl = sz_sum(nl)*sz_df(nl)
@@ -619,6 +625,9 @@
         fxyz(1, l) = fxyz(1, l) - dEdrlx
         fxyz(2, l) = fxyz(2, l) - dEdrly
         fxyz(3, l) = fxyz(3, l) - dEdrlz
+        print*, 'fxyz', fxyz(1, l), fxyz(2, l), fxyz(3, l)
+        print*, 'l', l
+        ! return
   
         !   dE/dZ*dZ/dr contribution to virial
   

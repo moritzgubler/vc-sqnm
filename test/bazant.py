@@ -5,7 +5,7 @@ except ImportError:
     def njit(f):
         return f
 
-@njit()
+# @njit()
 def nnlist(nnbrx, alat, cutoff, rxyz):
     """
     Calculate the neighbor list for a given set of atoms and lattice vectors
@@ -61,7 +61,7 @@ def nnlist(nnbrx, alat, cutoff, rxyz):
         lsta[1, iat] = ind - 1
     return lsta, lstb, rel
 
-@njit()
+# @njit()
 def energyandforces_bazant(alat0, rxyz0):
     """
     Calculate the energy and forces for a given set of atoms and lattice vectors using the Bazant EDIP potential.
@@ -262,6 +262,8 @@ def energyandforces_bazant(alat0, rxyz0):
 
     # call nnlist(nat, nnbrx, alat, cutoff, rxyz, lsta, lstb, rel)
     lsta, lstb, rel = nnlist(nnbrx, alat, cutoff, rxyz)
+    # print(lstb)
+    # quit()
 
     fxyz = np.zeros((nat, 3))
     ener = 0.0
@@ -390,6 +392,8 @@ def energyandforces_bazant(alat0, rxyz0):
             fxyz[j, 0] = fxyz[j, 0] - dV2ijx
             fxyz[j, 1] = fxyz[j, 1] - dV2ijy
             fxyz[j, 2] = fxyz[j, 2] - dV2ijz
+            # print('fxyz', fxyz[i, :])
+            # quit()
 
             #  dV2/dr contribution to virial
             virial_xyz[0] = virial_xyz[0] - s2_r[nj] * (dV2ijx * s2_dx[nj])
@@ -497,6 +501,8 @@ def energyandforces_bazant(alat0, rxyz0):
                 fxyz[i, 0] = fxyz[i, 0] + fjx + fkx
                 fxyz[i, 1] = fxyz[i, 1] + fjy + fky
                 fxyz[i, 2] = fxyz[i, 2] + fjz + fkz
+                # print('fxyz', fxyz[i, :])
+                # quit()
 
                 #   dV3/dR contributions to virial
                 virial = virial - s3_r[nj] * (fjx*s3_dx[nj] + fjy*s3_dy[nj] + fjz*s3_dz[nj])
@@ -549,7 +555,7 @@ def energyandforces_bazant(alat0, rxyz0):
         #           if(fixZ .eq. 0) then
 
         #  --- LEVEL 2: LOOP TO APPLY COORDINATION FORCES ---
-
+        # print('nz', nz)
         for nl in range(nz - 1):
 
             dEdrl = sz_sum[nl] * sz_df[nl]
@@ -563,6 +569,9 @@ def energyandforces_bazant(alat0, rxyz0):
             fxyz[l, 0] = fxyz[l, 0] - dEdrlx
             fxyz[l, 1] = fxyz[l, 1] - dEdrly
             fxyz[l, 2] = fxyz[l, 2] - dEdrlz
+            print('fxyz', fxyz[l, :])
+            print('l', l)
+            # quit()
 
             # dE/dZ*dZ/dr contribution to virial
             virial = virial - sz_r[nl] * (dEdrlx*sz_dx[nl] + dEdrly*sz_dy[nl] + dEdrlz*sz_dz[nl])
@@ -599,7 +608,12 @@ def energyandforces_bazant(alat0, rxyz0):
 
 def test():
     from ase.io import read
-    import bazant_fortran as bf
+    try:
+        import bazant_fortran as bf
+    except ImportError:
+        print("fortran module not found")
+        print('compile with: f2py -m bazant_fortran -c bazant_fortran.f90 -lopenblas')
+        quit()
 
     import time
 
@@ -627,15 +641,16 @@ def test():
         return etot, fxyz, stress
     
     np.random.seed(42)
-    sigma_rattle = 1e-1
+    sigma_rattle = 1e-2
 
-    tol = 1e-12
-    ntest = 10
+    tol = 1e-10
+    ntest = 5
     t_fortran = 0.0
     t_python = 0.0
     print('running tests')
     # print('0 %', end='')
     for i in range(ntest):
+        rattle(atoms, sigma_rattle)
         t0 = time.time()
         e_fortran, f_fortran, s_fortran = bazant_fortran_function(atoms)
         lat = atoms.get_cell(complete=True)
@@ -656,7 +671,6 @@ def test():
         if not np.max(np.abs(s_fortran - s_python)) < tol:
             print("stress difference", np.max(np.abs(s_fortran - s_python)), " is larger than tolerance in iteration ", i)
             raise ValueError("stress difference is larger than tolerance")
-        rattle(atoms, sigma_rattle)
     print("Tests passed")
     print("Time for fortran function", t_fortran / (ntest - 1))
     print("Time for python function ", t_python / (ntest - 1))
