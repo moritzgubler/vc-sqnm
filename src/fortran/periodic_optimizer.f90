@@ -42,6 +42,7 @@ private :: invertalat_lattice_per_opt
     procedure :: initialize_optimizer
     procedure :: optimizer_step
     procedure :: get_lower_energy_bound
+    procedure :: close_optimizer
   end type optimizer_periodic
 
 contains
@@ -88,7 +89,15 @@ contains
 
     call t%sqnm_opt%initialize_sqnm(t%ndim, nhist_max, t%initial_step_size, alpha0, eps_subsp)
 
-  end subroutine initialize_optimizer  
+  end subroutine initialize_optimizer
+
+  subroutine close_optimizer(t)
+    !! This subroutine is used to free the memory of the optimizer object.
+    class(optimizer_periodic) :: t
+
+    call t%sqnm_opt%close_sqnm()
+
+  end subroutine close_optimizer
 
   subroutine optimizer_step(t, r, alat, epot, f, deralat)
     !! Calculates new atomic coordinates that are closer to the local minimum. Variable cell shape optimization.

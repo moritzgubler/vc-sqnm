@@ -61,6 +61,7 @@ module sqnm
     procedure :: initialize_sqnm
     procedure :: sqnm_step
     procedure :: get_lower_bound
+    procedure :: close_sqnm
   end type sqnm_optimizer
 contains
 
@@ -108,6 +109,30 @@ subroutine initialize_sqnm(t, ndim, nhistx, alpha, alpha0, eps_subsp)
   allocate(t%work(t%lwork))
   
 end subroutine initialize_sqnm
+
+subroutine close_sqnm(t)
+    !! closes the sqnm optimizer and frees all memory that was allocated.
+    !! This function should be called at the end of the optimization.
+    class(sqnm_optimizer) :: t
+    
+    call t%x_list%close_history_list()
+    call t%flist%close_history_list()
+
+    if (allocated(t%s_evec)) deallocate(t%s_evec)
+    if (allocated(t%s_eval)) deallocate(t%s_eval)
+    if (allocated(t%prev_df_dx)) deallocate(t%prev_df_dx)
+    if (allocated(t%dr_subsp)) deallocate(t%dr_subsp)
+    if (allocated(t%df_subsp)) deallocate(t%df_subsp)
+    if (allocated(t%h_evec_subsp)) deallocate(t%h_evec_subsp)
+    if (allocated(t%h_eval)) deallocate(t%h_eval)
+    if (allocated(t%h_evec)) deallocate(t%h_evec)
+    if (allocated(t%res)) deallocate(t%res)
+    if (allocated(t%res_temp)) deallocate(t%res_temp)
+    if (allocated(t%dir_of_descent)) deallocate(t%dir_of_descent)
+    if (allocated(t%expected_positions)) deallocate(t%expected_positions)
+    if (allocated(t%work)) deallocate(t%work)
+
+end subroutine
 
 subroutine sqnm_step(t, x, f_of_x, df_dx, dir_of_descent)
   !! Calculates a set of new coordinates based on the function value and derivatives provide on input.

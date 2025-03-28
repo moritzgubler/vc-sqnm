@@ -37,6 +37,7 @@ module historylist
   procedure :: init
   procedure :: add
   procedure :: get_length
+  procedure :: close_history_list
 
   end type hist_list
 contains
@@ -54,6 +55,7 @@ contains
     t%nhistx = nhistx
     allocate(t%list(ndim, nhistx), t%diff_list(ndim, nhistx))
     allocate(t%old_x(ndim), t%norm_diff_list(ndim, nhistx))
+    t%is_initialized = .true.
   end subroutine init
 
   subroutine add(t, x)
@@ -91,5 +93,14 @@ contains
     class(hist_list) :: t
     get_length = t%icount - 2
   end function get_length
+
+  subroutine close_history_list(t)
+    !! closes the history list and deallocates the memory.
+    class(hist_list) :: t
+    if (t%is_initialized) then
+      deallocate(t%list, t%diff_list, t%norm_diff_list, t%old_x)
+      t%is_initialized = .false.
+    end if
+  end subroutine close_history_list
 
 end module historylist

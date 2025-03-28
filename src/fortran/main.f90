@@ -100,6 +100,34 @@ program main
     print*, 'Estimated lower bound on energy of local minimum:', optimizer%get_lower_energy_bound()
     print*, 'Estimated energy uncertainty:', epot - optimizer%get_lower_energy_bound()
 
+    print*, 'closing optimizer'
+    print*, ' '
+
+    print*, 'optimize again'
+    print*, "iteration, potential energy, norm of forces, norm of lattice derivatives"
+    call optimizer%close_optimizer()
+
+    rxyz(1, 1) = rxyz(1, 1) - 0.1d0
+
+    call optimizer%initialize_optimizer(nat, alat, alpha, nhistx, lattice_weigth, alpha0, eps_subsp)
+
+    !! Loop until convergence criteria are reached. A good choice would be the norm of the 
+    !! forces and lattice derivatives
+    do i = 1, 30
+        !! calculate energy, forces and lattice derivatives.
+        call energyandforces_bazant(nat, alat, rxyz, epot, fxyz, deralat, stress)
+
+        print"(i3, 2x, g0.7, 2x, g0.2, 2x, g0.2)", i-1, epot, maxval(abs(fxyz)), maxval(abs(deralat))
+
+        !! call this method to get atomic coordinates and lattice vectors that are closer to the 
+        !! local mimimun than the previous coordinates. Afterwards evaluate energy and forces again.
+        call optimizer%optimizer_step(rxyz, alat, epot, fxyz, deralat)
+    end do
+
+    print*, 'Current energy:', epot
+    print*, 'Estimated lower bound on energy of local minimum:', optimizer%get_lower_energy_bound()
+    print*, 'Estimated energy uncertainty:', epot - optimizer%get_lower_energy_bound()
+
 
   end program main
 
