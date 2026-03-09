@@ -625,8 +625,6 @@
         fxyz(1, l) = fxyz(1, l) - dEdrlx
         fxyz(2, l) = fxyz(2, l) - dEdrly
         fxyz(3, l) = fxyz(3, l) - dEdrlz
-        print*, 'fxyz', fxyz(1, l), fxyz(2, l), fxyz(3, l)
-        print*, 'l', l
         ! return
   
         !   dE/dZ*dZ/dr contribution to virial

@@ -596,7 +596,7 @@ def energyandforces_bazant(alat0, rxyz0):
     # etot = etot/Ha_eV
     fxyz = -fxyz # / Ha_eV * Bohr_Ang
     deralat = deralat # / Ha_eV * Bohr_Ang
-    vol = np.abs(np.linalg.det(alat0))
+    vol = np.linalg.det(alat0)
 
     # formula in fortran form of memory layout
     # stress = - deralat @ alat0.T / vol
@@ -641,13 +641,14 @@ def test():
     sigma_rattle = 1e-2
 
     tol = 1e-10
-    ntest = 5
+    ntest = 50
     t_fortran = 0.0
     t_python = 0.0
     print('running tests')
     # print('0 %', end='')
     for i in range(ntest):
         rattle(atoms, sigma_rattle)
+        sigma_rattle = sigma_rattle + 0.01 * i
         t0 = time.time()
         e_fortran, f_fortran, s_fortran = bazant_fortran_function(atoms)
         lat = atoms.get_cell(complete=True)
