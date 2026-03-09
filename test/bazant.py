@@ -5,7 +5,7 @@ except ImportError:
     def njit(f):
         return f
 
-# @njit()
+@njit()
 def nnlist(nnbrx, alat, cutoff, rxyz):
     """
     Calculate the neighbor list for a given set of atoms and lattice vectors
@@ -61,7 +61,7 @@ def nnlist(nnbrx, alat, cutoff, rxyz):
         lsta[1, iat] = ind - 1
     return lsta, lstb, rel
 
-# @njit()
+@njit()
 def energyandforces_bazant(alat0, rxyz0):
     """
     Calculate the energy and forces for a given set of atoms and lattice vectors using the Bazant EDIP potential.
@@ -361,7 +361,7 @@ def energyandforces_bazant(alat0, rxyz0):
                             raise ValueError('enlarge nnbrx')
         #   ZERO ACCUMULATION ARRAY FOR ENVIRONMENT FORCES
 
-        sz_sum[0:nz - 1] = 0.0
+        sz_sum[0:nz] = 0.0
 
         #   ENVIRONMENT-DEPENDENCE OF PAIR INTERACTION
         temp0 = par_bet * Z
@@ -419,7 +419,7 @@ def energyandforces_bazant(alat0, rxyz0):
             #     --- LEVEL 3: LOOP FOR PAIR COORDINATION FORCES ---
 
             dV2dZ = - dp * s2_t0[nj]
-            sz_sum[0:nz - 1] = sz_sum[0:nz - 1] + dV2dZ
+            sz_sum[0:nz] = sz_sum[0:nz] + dV2dZ
         #   COORDINATION-DEPENDENCE OF THREE-BODY INTERACTION
 
         winv = Qort * np.exp(-muhalf * Z)
@@ -549,14 +549,14 @@ def energyandforces_bazant(alat0, rxyz0):
                 dV3dZ = temp1*dHdx*dxdZ
 
                 #   --- LEVEL 4: LOOP FOR THREE-BODY COORDINATION FORCES ---
-                sz_sum[0:nz - 1] = sz_sum[0:nz - 1] + dV3dZ
+                sz_sum[0:nz] = sz_sum[0:nz] + dV3dZ
                 #                 end if
 
         #           if(fixZ .eq. 0) then
 
         #  --- LEVEL 2: LOOP TO APPLY COORDINATION FORCES ---
         # print('nz', nz)
-        for nl in range(nz - 1):
+        for nl in range(nz):
 
             dEdrl = sz_sum[nl] * sz_df[nl]
             dEdrlx = dEdrl*sz_dx[nl]
@@ -569,9 +569,6 @@ def energyandforces_bazant(alat0, rxyz0):
             fxyz[l, 0] = fxyz[l, 0] - dEdrlx
             fxyz[l, 1] = fxyz[l, 1] - dEdrly
             fxyz[l, 2] = fxyz[l, 2] - dEdrlz
-            print('fxyz', fxyz[l, :])
-            print('l', l)
-            # quit()
 
             # dE/dZ*dZ/dr contribution to virial
             virial = virial - sz_r[nl] * (dEdrlx*sz_dx[nl] + dEdrly*sz_dy[nl] + dEdrlz*sz_dz[nl])
