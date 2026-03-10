@@ -5,7 +5,7 @@ except ImportError:
     def njit(f):
         return f
 
-@njit()
+@njit(parallel=False)
 def nnlist(nnbrx, alat, cutoff, rxyz):
     """
     Calculate the neighbor list for a given set of atoms and lattice vectors
@@ -61,22 +61,21 @@ def nnlist(nnbrx, alat, cutoff, rxyz):
         lsta[1, iat] = ind - 1
     return lsta, lstb, rel
 
-@njit()
+@njit(parallel=False)
 def energyandforces_bazant(alat0, rxyz0):
     """
     Calculate the energy and forces for a given set of atoms and lattice vectors using the Bazant EDIP potential.
-    Internally things are computed in Angstroem and eV, The input (rxyz0,alat0) is however in bohr and
-    the output energy in Hartree, fxyz and deralat  in Hartree/Bohr
+    Everything is computed in Angstrom and eV.
 
     Parameters
 
-    alat0 : np.ndarray(3, 3) Lattice vectors, each row is one vector, units in bohr
-    rxyz0 : np.ndarray(nat, 3) Atomic positions, units in bohr
+    alat0 : np.ndarray(3, 3) Lattice vectors, each row is one vector, units in Angstrom
+    rxyz0 : np.ndarray(nat, 3) Atomic positions, units in Angstrom
 
     Returns
-    ener : float Energy in Hartree
-    fxyz : np.ndarray(nat, 3) Forces in Hartree/Bohr
-    stress: np.ndarray(3, 3) Stress tensor in Hartree/Bohr^3
+    etot : float Energy in eV
+    fxyz : np.ndarray(nat, 3) Forces in eV/Angstrom
+    stress : np.ndarray(3, 3) Stress tensor in eV/Angstrom^3
 
     """
 
