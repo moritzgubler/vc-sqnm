@@ -3,8 +3,10 @@ import bazant
 
 def _energyandforces(nat, pos, alat):
     import random
-    epot, forces, deralat = bazant.energyandforces_bazant(alat, pos, nat)
-    return epot, forces, deralat
+    epot, forces, stress, deralat = bazant.energyandforces_bazant(alat, pos)
+    # bazant returns forces (nat,3) and deralat in row convention;
+    # optimizer_step expects (3,nat) and column convention
+    return epot, forces.T, deralat.T
 
 def _rand_vec(nat, sigma):
     import random
@@ -25,21 +27,26 @@ def _tests():
     filename = sys.argv[1]
 
     at = io.read(filename)
-    pos = at.get_positions().T / b2a
-    lat = at.get_cell().T / b2a
+    pos = at.get_positions()
+    lat = at.get_cell().array
     nat = at.get_global_number_of_atoms()
-    alpha = 2
+    alpha = -.01
     lattice_weight = 2.0
 
     e0 = -1.3670604955980028
 
-    opt_clean = sqnm.periodic_sqnm.periodic_sqnm(nat, lat, alpha, 10, lattice_weight, 1e-2, 1e-3, use_cupy=False)
+    opt_clean = sqnm.periodic_sqnm.periodic_sqnm(nat, lat.T, alpha, 10, lattice_weight, 1e-2, 1e-3, use_cupy=False)
 
     for i in range(30):
         epot, forces, deralat = _energyandforces(nat, pos, lat)
         t1 = time.time()
-        pos, lat = opt_clean.optimizer_step(pos, lat, epot, forces, deralat)
-        print(time.time() - t1)
+        pos, lat = opt_clean.optimizer_step(pos.T, lat.T, epot, forces, deralat)
+        pos = pos.T
+        lat = lat.T
+
+
+
+
         est1 = opt_clean.lower_bound()
         print(epot, max(np.linalg.norm(forces, axis=0).max(), np.abs(deralat).max()))
 

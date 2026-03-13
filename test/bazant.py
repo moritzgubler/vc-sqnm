@@ -600,7 +600,30 @@ def energyandforces_bazant(alat0, rxyz0):
     # formula in fortran form of memory layout
     # stress = - deralat @ alat0.T / vol
     stress = - deralat.T @ alat0 / vol
-    return etot, fxyz, stress
+    return etot, fxyz, stress, deralat
+
+from ase.calculators.calculator import Calculator, all_changes
+
+class BazantCalculator(Calculator):
+    """ASE calculator for the Bazant EDIP silicon potential.
+
+    Units: Angstrom and eV (ASE native).
+    """
+    implemented_properties = ['energy', 'forces', 'stress']
+
+    def calculate(self, atoms=None, properties=['energy'], system_changes=all_changes):
+        Calculator.calculate(self, atoms, properties, system_changes)
+        alat = np.array(self.atoms.get_cell(), dtype=np.float64)
+        pos = np.array(self.atoms.get_positions(), dtype=np.float64)
+        etot, fxyz, stress, deralat  = energyandforces_bazant(alat, pos)
+        self.results['energy'] = etot
+        self.results['forces'] = fxyz
+        # Voigt notation [xx, yy, zz, yz, xz, xy]
+        self.results['stress'] = np.array([
+            stress[0, 0], stress[1, 1], stress[2, 2],
+            stress[1, 2], stress[0, 2], stress[0, 1]
+        ])
+
 
 def test():
     from ase.io import read
@@ -654,7 +677,7 @@ def test():
         lat = np.array(lat[:], dtype=np.float64)
         pos = np.array(atoms.get_positions())
         t1 = time.time()
-        e_python, f_python, s_python = energyandforces_bazant(lat, pos)
+        e_python, f_python, s_python, deralat = energyandforces_bazant(lat, pos)
         t2 = time.time()
         if i > 0:
             t_fortran += t1 - t0
