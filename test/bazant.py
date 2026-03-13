@@ -5,7 +5,7 @@ except ImportError:
     def njit(f):
         return f
 
-@njit(parallel=False)
+@njit()
 def nnlist(nnbrx, alat, cutoff, rxyz):
     """
     Calculate the neighbor list for a given set of atoms and lattice vectors
@@ -61,7 +61,7 @@ def nnlist(nnbrx, alat, cutoff, rxyz):
         lsta[1, iat] = ind - 1
     return lsta, lstb, rel
 
-@njit(parallel=False)
+@njit()
 def energyandforces_bazant(alat0, rxyz0):
     """
     Calculate the energy and forces for a given set of atoms and lattice vectors using the Bazant EDIP potential.
