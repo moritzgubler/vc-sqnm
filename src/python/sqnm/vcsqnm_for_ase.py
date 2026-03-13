@@ -56,18 +56,19 @@ class aseOptimizer():
 
 
     def _extractInfo(self, atoms):
-        self.positions = atoms.get_positions().T
+        self.positions = atoms.get_positions()
 
-        self.forces = atoms.get_forces().T
+        self.forces = atoms.get_forces()
         self.energy = atoms.get_potential_energy()
         if self.vc_relax:
-            self.cell = atoms.get_cell(True).T
+            self.cell = atoms.get_cell(True).array
             self.stress = atoms.get_stress(voigt=False)
             self.deralat = self._getLatticeDerivative()
-    
+
 
     def _getLatticeDerivative(self):
-        return - np.linalg.det(self.cell) * self.stress @ np.linalg.inv(self.cell).T
+        # cell is in row convention; deralat_row = -det(A) * inv(A).T @ stress
+        return - np.linalg.det(self.cell) * np.linalg.inv(self.cell).T @ self.stress
 
 
     def step(self, atoms: Atoms):
@@ -75,11 +76,11 @@ class aseOptimizer():
 
         if self.vc_relax:
             self.positions, self.cell = self.optimizer.optimizer_step(self.positions, self.cell, self.energy, self.forces, self.deralat)
-            atoms.set_cell(self.cell.T)
+            atoms.set_cell(self.cell)
         else:
             self.positions = self.optimizer.optimizer_step(self.positions, self.energy, self.forces)
 
-        atoms.set_positions(self.positions.T)
+        atoms.set_positions(self.positions)
 
     
     def _getDerivativeNorm(self):

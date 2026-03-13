@@ -63,9 +63,9 @@ class periodic_sqnm:
         self.ndim = 3 * nat + 9
         self.lattice_weight = lattice_weigth
         if self.use_cupy:
-            self.initial_lat = self.np.array(init_lat)
+            self.initial_lat = self.np.array(init_lat).T
         else:
-            self.initial_lat = init_lat
+            self.initial_lat = init_lat.T
         self.initial_lat_inverse = self.np.linalg.inv(self.initial_lat)
         self.lattice_transformer = self.np.diag(1 / self.np.linalg.norm(self.initial_lat, axis=0)) * self.lattice_weight * self.np.sqrt(nat)
         self.lattice_transformer_inv = self.np.linalg.inv(self.lattice_transformer)
@@ -89,17 +89,17 @@ class periodic_sqnm:
         3. repeat.
         Parameters
         ----------
-        pos: numpy matrix, dimension(3, nat)
-            Input: atomic coordinates, dimension(3, nat). 
+        pos: numpy matrix, dimension(nat, 3)
+            Input: atomic coordinates, dimension(nat, 3).
             Output: improved coordinates that are calculated based on forces from this and previous iterations.
         alat: Numpy 3*3 matrix
-            Matrix containing lattice vectors stored columnwise.
+            Matrix containing lattice vectors stored rowwise (ASE convention).
         epot: double
             Potential energy of current geometry.
-        forces: numpy matrix, dimension(3, nat)
+        forces: numpy matrix, dimension(nat, 3)
             Forces of current geometry
-        deralat: numpy matrix, dimension(3, nat)
-            Derivative of energy with repect to lattice vectors. Is connected to the stress tensor by:
+        deralat: numpy matrix, dimension(3, 3)
+            Derivative of energy with repect to lattice vectors (row convention). Is connected to the stress tensor by:
             dE / dA = -det(A) * stress A^{-1}^T
             See equation 9 of the vc-sqnm paper. https://arxiv.org/abs/2206.07339
         """
@@ -109,6 +109,12 @@ class periodic_sqnm:
             alat = self.np.array(alat)
             forces = self.np.array(forces)
             deralat = self.np.array(deralat)
+
+        # convert from ASE row convention to internal column convention
+        pos = pos.T
+        alat = alat.T
+        forces = forces.T
+        deralat = deralat.T
 
         # check for noise in forces using eq. 23 of vc-sqnm paper
         fnoise = self.np.linalg.norm(self.np.sum(forces, axis=1)) / self.np.sqrt(3 * self.nat)
@@ -142,7 +148,7 @@ class periodic_sqnm:
             pos = self.np.asnumpy(pos)
             alat = self.np.asnumpy(alat)
 
-        return pos, alat
+        return pos.T, alat.T
 
     def lower_bound(self):
         """ Returns an estimate of a lower bound for the local minumum.

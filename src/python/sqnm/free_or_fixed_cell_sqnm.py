@@ -76,18 +76,22 @@ class free_sqnm:
         3. repeat.
         Parameters
         ----------
-        pos: numpy matrix, dimension(3, nat)
-            Input: atomic coordinates, dimension(3, nat). 
+        pos: numpy matrix, dimension(nat, 3)
+            Input: atomic coordinates, dimension(nat, 3).
             Output: improved coordinates that are calculated based on forces from this and previous iterations.
         epot: double
             Potential energy of current geometry.
-        forces: numpy matrix, dimension(3, nat)
+        forces: numpy matrix, dimension(nat, 3)
             Forces of current geometry
         """
 
         if self.use_cupy and not self.cupy_in_and_output:
             pos = self.np.array(pos)
             forces = self.np.array(forces)
+
+        # convert to internal column convention
+        pos = pos.T
+        forces = forces.T
 
         # check for noise in forces using eq. 23 of vc-sqnm paper
         fnoise = self.np.linalg.norm(self.np.sum(forces, axis=1)) / self.np.sqrt(3 * self.nat)
@@ -103,7 +107,7 @@ class free_sqnm:
         pos = pos.reshape((3, self.nat))
         if self.use_cupy and not self.cupy_in_and_output:
             pos = self.np.asnumpy(pos)
-        return pos
+        return pos.T
 
     def lower_bound(self):
         """ Returns an estimate of a lower bound for the local minumum.
